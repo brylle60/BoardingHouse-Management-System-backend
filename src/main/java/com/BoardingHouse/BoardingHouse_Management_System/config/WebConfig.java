@@ -1,4 +1,4 @@
-package com.BoardingHouse.BoardingHouse_Management_System.Controller;
+package com.BoardingHouse.BoardingHouse_Management_System.config;
 
 
 import java.util.Arrays;
