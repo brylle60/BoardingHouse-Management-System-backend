@@ -18,5 +18,5 @@ src/main/java/com/BoardingHouse/config/
 ├── LoggingConfig.java
 └── LocaleConfig.java
 ```
-## **BACKEND**
+## **BACKEND:**
 
