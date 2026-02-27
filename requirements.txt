@@ -1,0 +1,26 @@
+
+Create and activate the virtual environment:
+py -m venv venv
+venv\Scripts\activate
+
+
+
+
+Dependencies:
+
+pip install fastapi
+pip install "uvicorn[standard]"
+pip install "python-jose[cryptography]"
+pip install "passlib[bcrypt]"
+pip install pydantic
+pip install pydantic-settings
+pip install python-dotenv
+```
+
+---
+
+⚠️ **Heads up — Python 3.14 known issue:**
+
+`passlib` is currently **not fully compatible with Python 3.14** because it uses `crypt` which was removed in 3.13+. If you hit this error:
+```
+ModuleNotFoundError: No module named 'crypt'

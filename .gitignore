@@ -1,38 +1,88 @@
-HELP.md
-target/
-.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**/target/
-!**/src/test/**/target/
+# =============================================================
+# Python
+# =============================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
 
-### STS ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
+# =============================================================
+# Virtual Environment
+# =============================================================
+venv/
+env/
+ENV/
+.venv/
+.env/
 
-### IntelliJ IDEA ###
-.idea
-*.iws
-*.iml
-*.ipr
+# =============================================================
+# Environment Variables (NEVER commit secrets!)
+# =============================================================
+.env
+*.env
+!.env.example
 
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
+# =============================================================
+# FastAPI / Uvicorn
+# =============================================================
+*.log
+uvicorn.log
 
-### VS Code ###
+# =============================================================
+# Database
+# =============================================================
+*.db
+*.sqlite
+*.sqlite3
+
+# =============================================================
+# IDEs & Editors
+# =============================================================
+# VS Code
 .vscode/
+*.code-workspace
 
+# PyCharm / IntelliJ
+.idea/
+*.iml
+*.iws
 
-# Application properties with secrets
-application-dev.properties
-application-local.properties
+# =============================================================
+# OS Files
+# =============================================================
+# Windows
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Mac
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# =============================================================
+# Build / Distribution
+# =============================================================
+dist/
+build/
+*.egg-info/
+*.egg
+.eggs/
+wheels/
+
+# =============================================================
+# Testing & Coverage
+# =============================================================
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# =============================================================
+# Misc
+# =============================================================
+*.bak
+*.swp
+*.tmp
