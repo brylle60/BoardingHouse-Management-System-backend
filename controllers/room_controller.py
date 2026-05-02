@@ -123,6 +123,29 @@ async def get_room_stats(
 
 
 # ================================================================
+# GET /api/rooms/public/vacant  ← PUBLIC, no auth required
+# ================================================================
+
+@router.get(
+    "/public/vacant",
+    response_model=ApiResponse[list[RoomResponse]],
+    status_code=status.HTTP_200_OK,
+    summary="Get all vacant rooms (public)",
+    description="Returns all vacant rooms without authentication. "
+                "Used by the public room listing/registration page.",
+)
+async def get_vacant_rooms_public(
+    skip:  int = Query(default=0,  ge=0),
+    limit: int = Query(default=20, ge=1, le=100),
+):
+    data = await room_service.get_vacant_rooms(skip=skip, limit=limit)
+    return ApiResponse.success(
+        data=data,
+        message="Vacant rooms retrieved successfully.",
+    )
+
+
+# ================================================================
 # GET /api/rooms/vacant
 # ================================================================
 
