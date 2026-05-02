@@ -1,7 +1,11 @@
 from models import User
+from beanie import PydanticObjectId
 
-
-
+async def find_by_id(user_id: str):
+    try:
+        return await User.get(PydanticObjectId(user_id))
+    except Exception:
+        return None
 #Read - Find one
 async def find_by_username(username: str):
     return await User.find_one(User.username == username)
