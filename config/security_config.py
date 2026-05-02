@@ -69,8 +69,7 @@ PUBLIC_ROUTES = {
     "/openapi.json",
     "/favicon.ico",
 
-    "/rooms",
-    "/rooms/",
+    "/room",
 }
 
 PROTECTED_ROUTES = {
