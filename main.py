@@ -5,6 +5,7 @@ from config.database_config import init_database
 from config.security_config import configure_cors 
 from config.jwt_middleware import JwtAuthMiddleware
 from controllers.auth_controller import router as auth_router
+from controllers.auth_controller import router as room_router
 from controllers.admin_controller import router as admin_router
 
   # ← add this
