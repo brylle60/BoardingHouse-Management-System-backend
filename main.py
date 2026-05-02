@@ -27,6 +27,7 @@ configure_cors(app)
 app.add_middleware(JwtAuthMiddleware)
 
 # Register routers - equivalent to @RequestMapping on controllers
+app.include_router(room_router, prefix="/rooms", tags=["Rooms"])
 app.include_router(auth_router)
 app.include_router(admin_router) 
 
