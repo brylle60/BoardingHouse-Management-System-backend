@@ -77,6 +77,9 @@ PUBLIC_ROUTES = {
     "/redoc",
     "/openapi.json",
     "/favicon.ico",
+
+    "/rooms",
+    "/rooms/",
 }
 
 

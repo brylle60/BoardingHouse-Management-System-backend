@@ -5,6 +5,7 @@ from config.database_config import init_database
 from config.security_config import configure_cors
 from config.jwt_middleware import JwtAuthMiddleware
 from controllers.auth_controller import router as auth_router
+from controllers.room_controller import router as room_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -25,6 +26,7 @@ configure_cors(app)
 app.add_middleware(JwtAuthMiddleware)
 
 # Register routers - equivalent to @RequestMapping on controllers
+app.include_router(room_router, prefix="/rooms", tags=["Rooms"])
 app.include_router(auth_router)
 
 
