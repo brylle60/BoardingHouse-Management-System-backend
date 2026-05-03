@@ -22,6 +22,8 @@ pip install "python-jose[cryptography]" "passlib[bcrypt]" pyjwt authlib httpx
 
 # 6. Install Validation & Email
 pip install "pydantic[email]" fastapi-mail
+#7 Apscheduler 
+pip install apscheduler
 
 pip install --upgrade pymongo motor beanie
 pip install -U motor

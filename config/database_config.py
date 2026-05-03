@@ -7,8 +7,17 @@ from models.tenant import Tenant
 from models.user import User
 from models.room import Room
 from models.otp import OtpCode
+from models.lease import Lease
+from models.notification import Notification
 
-
+document_models=[
+    User,
+    Tenant,
+    Room,
+    Lease,
+    Notification,   # ← add this
+]
+document_models=[User, Tenant, Room, Lease]
 
 class DataSettings(BaseSettings):
     # Pydantic will automatically look for MONGODB_URL and MONGODB_NAME in your .env
