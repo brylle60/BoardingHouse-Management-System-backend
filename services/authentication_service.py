@@ -30,8 +30,9 @@ class AuthenticationService:
                 detail="Invalid credentials",
             )
 
-        # Issue JWT tokens using the actual username
-        access_token  = jwt_config.generate_token(user.username)
+        # Issue JWT tokens — include role in claims for require_roles() to work
+        role_value    = user.role.value if hasattr(user.role, "value") else str(user.role)
+        access_token  = jwt_config.generate_token(user.username, extra_claims={"roles": [role_value]})
         refresh_token = jwt_config.generate_refresh_token(user.username)
 
         return {
@@ -39,6 +40,9 @@ class AuthenticationService:
             "access_token":  access_token,
             "refresh_token": refresh_token,
             "token_type":    "Bearer",
+            "role":          role_value,
+            "id":            str(user.id) if user.id else None,
+            "email":         user.email,
         }
 
     def encode_password(self, raw_password: str) -> str:

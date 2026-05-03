@@ -2,15 +2,15 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from config.database_config import init_database
-from config.security_config import configure_cors 
+from config.security_config import configure_cors
 from config.jwt_middleware import JwtAuthMiddleware
 from controllers.auth_controller import router as auth_router
+from controllers.room_controller import router as room_router   
 from controllers.admin_controller import router as admin_router
 
-  # ← add this
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await init_database()   # connects on startup
+    await init_database()
     yield
 
 app = FastAPI(
@@ -20,22 +20,16 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS - equivalent to WebConfig + SecurityConfig .cors() setup
 configure_cors(app)
-
-# JWT Auth Middleware - equivalent to SecurityConfig.securityFilterChain()
 app.add_middleware(JwtAuthMiddleware)
 
-# Register routers - equivalent to @RequestMapping on controllers
-app.include_router(room_router, prefix="/rooms", tags=["Rooms"])
+app.include_router(room_router)   
 app.include_router(auth_router)
-app.include_router(admin_router) 
-
+app.include_router(admin_router)
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
-
 
 if __name__ == "__main__":
     import uvicorn
