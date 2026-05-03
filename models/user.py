@@ -8,7 +8,7 @@ from enum import Enum
 class RoleName(str, Enum):
     ADMIN       =     "ROLE_ADMIN"
     MANAGER     =     "ROLE_MANAGER"
-    STAFF       =     "ROLE_STAFF"
+  
     MAINTENANCE =     "ROLE_MAINTENANCE"
     TENANT      =     "ROLE_TENANT"
 

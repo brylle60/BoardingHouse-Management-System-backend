@@ -18,7 +18,7 @@ from models.tenant import (
 class GovernmentIDRequest(BaseModel):
     """
     Submitted government ID details.
-    Verification is always False on submission — staff verifies manually.
+    Verification is always False on submission — manager verifies manually.
     """
     id_type:     IDType
     id_number:   str    = Field(..., min_length=3, max_length=50)

@@ -74,8 +74,8 @@ class GovernmentID(BaseModel):
     id_number:   str
     issued_date: Optional[date] = None
     expiry_date: Optional[date] = None
-    verified:    bool           = False         # Set True after staff review
-    verified_by: Optional[str]  = None          # Username of verifying staff
+    verified:    bool           = False        
+    verified_by: Optional[str]  = None          
     verified_at: Optional[datetime] = None
 
 
@@ -172,15 +172,15 @@ class Tenant(Document):
     deposit_date:        Optional[datetime] = None
 
     # ── Notes ─────────────────────────────────────────────────────
-    # Internal staff/admin notes — not visible to the tenant
+   
     notes: Optional[str] = None
 
     # ── Audit Fields ──────────────────────────────────────────────
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
-    # Tracks which staff/admin registered or last updated this tenant
-    created_by: Optional[str] = None   # Username of registering staff
+
+    created_by: Optional[str] = None  
     updated_by: Optional[str] = None   # Username of last editor
 
     # ── Beanie Settings ───────────────────────────────────────────
@@ -215,7 +215,7 @@ class Tenant(Document):
 
     @property
     def is_id_verified(self) -> bool:
-        """True if the submitted government ID has been verified by staff."""
+        
         return self.government_id is not None and self.government_id.verified
 
     @property

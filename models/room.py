@@ -131,7 +131,7 @@ class Room(Document):
     # ── Audit Fields ──────────────────────────────────────────
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-    created_by: Optional[str] = None   # username of staff who added room
+    created_by: Optional[str] = None   
     updated_by: Optional[str] = None   # username of last editor
 
     # ── Beanie Settings ───────────────────────────────────────

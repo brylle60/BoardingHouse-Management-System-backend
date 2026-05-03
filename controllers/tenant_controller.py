@@ -61,12 +61,12 @@ async def register_tenant(
     status_code=status.HTTP_200_OK,
     summary="Get all tenants",
     description="Returns a paginated list of all tenants. "
-                "Accessible by ADMIN, MANAGER, and STAFF.",
+                "Accessible by ADMIN, and MANAGER.",
 )
 async def get_all_tenants(
     skip:  int = Query(default=0,  ge=0,   description="Number of records to skip"),
     limit: int = Query(default=20, ge=1, le=100, description="Max records to return"),
-    current_user=Depends(require_roles(RoleName.ADMIN, RoleName.MANAGER, RoleName.STAFF)),
+    current_user=Depends(require_roles(RoleName.ADMIN, RoleName.MANAGER)),
 ):
     data = await tenant_service.get_all_tenants(skip=skip, limit=limit)
     return ApiResponse.success(
@@ -85,13 +85,13 @@ async def get_all_tenants(
     status_code=status.HTTP_200_OK,
     summary="Search tenants",
     description="Search tenants by name, email, or phone number. "
-                "Case-insensitive. Accessible by ADMIN, MANAGER, and STAFF.",
+                "Case-insensitive. Accessible by ADMIN, and MANAGER.",
 )
 async def search_tenants(
     q:     str = Query(..., min_length=1, description="Search keyword"),
     skip:  int = Query(default=0,  ge=0),
     limit: int = Query(default=20, ge=1, le=100),
-    current_user=Depends(require_roles(RoleName.ADMIN, RoleName.MANAGER, RoleName.STAFF)),
+    current_user=Depends(require_roles(RoleName.ADMIN, RoleName.MANAGER)),
 ):
     data = await tenant_service.search_tenants(query=q, skip=skip, limit=limit)
     return ApiResponse.success(
@@ -134,13 +134,13 @@ async def get_tenant_stats(
     summary="Get tenants by status",
     description="Returns tenants filtered by status: "
                 "ACTIVE, PENDING, INACTIVE, or MOVED_OUT. "
-                "Accessible by ADMIN, MANAGER, and STAFF.",
+                "Accessible by ADMIN, and MANAGER.",
 )
 async def get_tenants_by_status(
     tenant_status: TenantStatus = Path(..., description="Tenant status filter"),
     skip:  int = Query(default=0,  ge=0),
     limit: int = Query(default=20, ge=1, le=100),
-    current_user=Depends(require_roles(RoleName.ADMIN, RoleName.MANAGER, RoleName.STAFF)),
+    current_user=Depends(require_roles(RoleName.ADMIN, RoleName.MANAGER,)),
 ):
     data = await tenant_service.get_tenants_by_status(
         status=tenant_status, skip=skip, limit=limit
@@ -161,7 +161,7 @@ async def get_tenants_by_status(
     status_code=status.HTTP_200_OK,
     summary="Get tenants with unverified IDs",
     description="Returns tenants who have submitted a government ID "
-                "but have not yet been verified by staff. "
+                "but have not yet been verified by manager. "
                 "Accessible by ADMIN and MANAGER.",
 )
 async def get_unverified_tenants(
@@ -235,11 +235,11 @@ async def get_my_profile(
     status_code=status.HTTP_200_OK,
     summary="Get tenant by ID",
     description="Returns a single tenant by their MongoDB ObjectId. "
-                "Accessible by ADMIN, MANAGER, and STAFF.",
+                "Accessible by ADMIN, and MANAGER.",
 )
 async def get_tenant_by_id(
     tenant_id: PydanticObjectId = Path(..., description="Tenant MongoDB ObjectId"),
-    current_user=Depends(require_roles(RoleName.ADMIN, RoleName.MANAGER, RoleName.STAFF)),
+    current_user=Depends(require_roles(RoleName.ADMIN, RoleName.MANAGER)),
 ):
     data = await tenant_service.get_tenant_by_id(tenant_id)
     return ApiResponse.success(
@@ -375,7 +375,7 @@ async def unassign_room(
     status_code=status.HTTP_200_OK,
     summary="Verify tenant government ID",
     description="Marks a tenant's submitted government ID as verified "
-                "after manual staff review. "
+                "after manual manager review. "
                 "Accessible by ADMIN and MANAGER.",
 )
 async def verify_tenant_id(
