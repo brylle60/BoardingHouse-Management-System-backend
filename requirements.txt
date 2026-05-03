@@ -1,42 +1,49 @@
+# Create and activate the virtual environment:
+# py -m venv venv
+# venv\Scripts\activate
 
-Create and activate the virtual environment:
-py -m venv venv
-venv\Scripts\activate
+# Dependencies:
 
-Dependencies:
+# Web Server & Framework
+fastapi
+uvicorn[standard]
 
-# 1. Upgrade pip to the latest version (26.0.1+)
-python -m pip install --upgrade pip
+# Database
+beanie
+pymongo
+motor
+pydantic-settings
+python-dotenv
 
-# 2. Clean out the old, conflicting database drivers
-pip uninstall -y pymongo motor beanie
+# Security & Authentication
+python-jose[cryptography]
+bcrypt
+pyjwt
+authlib==1.3.1
+httpx
 
-# 3. Install Web Server & Framework
-pip install fastapi "uvicorn[standard]"
+# Validation & Email
+pydantic[email]
+fastapi-mail
 
-# 4. Install Database (Beanie pulls in the correct Motor/PyMongo automatically)
-pip install beanie pydantic-settings python-dotenv
+# To install all dependencies, run:
+# pip install -r requirements.txt
 
-# 5. Install Security & Authentication
-pip install "python-jose[cryptography]" "passlib[bcrypt]" pyjwt authlib httpx
+# Update pip to the latest version:
+# python.exe -m pip install --upgrade pip
 
 # 6. Install Validation & Email
 pip install "pydantic[email]" fastapi-mail
 #7 Apscheduler 
 pip install apscheduler
 
-pip install --upgrade pymongo motor beanie
-pip install -U motor
-python -m pip install --upgrade pip
-```
+#pip install --upgrade pymongo motor beanie
+#pip install -U motor
+#python -m pip install --upgrade pi
 
----
+#ModuleNotFoundError: No module named 'crypt'
 
-⚠️ **Heads up — Python 3.14 known issue:**
-
-`passlib` is currently **not fully compatible with Python 3.14** because it uses `crypt` which was removed in 3.13+. If you hit this error:
-```
-ModuleNotFoundError: No module named 'crypt'
-
-Run the backend:
-uvicorn main:app --reload --port 8080
+# Run the backend:
+# uvicorn main:app --reload --port 8080
+# Run the backend:
+# uvicorn main:app --reload --port 8080

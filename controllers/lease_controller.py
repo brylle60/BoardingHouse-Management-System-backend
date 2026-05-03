@@ -67,13 +67,13 @@ async def create_lease(
     summary="Get all leases",
     description="Returns a paginated list of all leases across all tenants and rooms. "
                 "Includes all statuses: ACTIVE, PENDING, EXPIRED, TERMINATED, RENEWED. "
-                "Accessible by ADMIN, MANAGER, and STAFF.",
+                "Accessible by ADMIN, and MANAGER.",
 )
 async def get_all_leases(
     skip:  int = Query(default=0,  ge=0),
     limit: int = Query(default=20, ge=1, le=100),
     current_user=Depends(require_roles(
-        RoleName.ADMIN, RoleName.MANAGER, RoleName.STAFF
+        RoleName.ADMIN, RoleName.MANAGER
     )),
 ):
     data = await lease_service.get_all_leases(skip=skip, limit=limit)
@@ -145,14 +145,14 @@ async def get_expiring_leases(
     summary="Get leases by status",
     description="Returns leases filtered by status: "
                 "ACTIVE, PENDING, EXPIRED, TERMINATED, or RENEWED. "
-                "Accessible by ADMIN, MANAGER, and STAFF.",
+                "Accessible by ADMIN, and MANAGER.",
 )
 async def get_leases_by_status(
     lease_status: LeaseStatus = Path(..., description="Lease status filter"),
     skip:  int = Query(default=0,  ge=0),
     limit: int = Query(default=20, ge=1, le=100),
     current_user=Depends(require_roles(
-        RoleName.ADMIN, RoleName.MANAGER, RoleName.STAFF
+        RoleName.ADMIN, RoleName.MANAGER
     )),
 ):
     data = await lease_service.get_leases_by_status(
@@ -175,7 +175,7 @@ async def get_leases_by_status(
     summary="Get all leases for a tenant",
     description="Returns the full lease history for a specific tenant. "
                 "Includes all statuses. "
-                "Accessible by ADMIN, MANAGER, and STAFF. "
+                "Accessible by ADMIN,and MANAGE. "
                 "TENANT role can only access their own leases via /me.",
 )
 async def get_leases_by_tenant(
@@ -183,7 +183,7 @@ async def get_leases_by_tenant(
     skip:  int = Query(default=0,  ge=0),
     limit: int = Query(default=20, ge=1, le=100),
     current_user=Depends(require_roles(
-        RoleName.ADMIN, RoleName.MANAGER, RoleName.STAFF
+        RoleName.ADMIN, RoleName.MANAGER
     )),
 ):
     data = await lease_service.get_leases_by_tenant(
@@ -206,12 +206,12 @@ async def get_leases_by_tenant(
     summary="Get active lease for a tenant",
     description="Returns the currently active lease for a specific tenant. "
                 "Raises 404 if no active lease exists. "
-                "Accessible by ADMIN, MANAGER, and STAFF.",
+                "Accessible by ADMIN, and MANAGER.",
 )
 async def get_active_lease_by_tenant(
     tenant_id: str = Path(..., description="Tenant MongoDB ObjectId string"),
     current_user=Depends(require_roles(
-        RoleName.ADMIN, RoleName.MANAGER, RoleName.STAFF
+        RoleName.ADMIN, RoleName.MANAGER
     )),
 ):
     data = await lease_service.get_active_lease_by_tenant(tenant_id)
@@ -231,14 +231,14 @@ async def get_active_lease_by_tenant(
     status_code=status.HTTP_200_OK,
     summary="Get all leases for a room",
     description="Returns the full lease history for a specific room. "
-                "Accessible by ADMIN, MANAGER, and STAFF.",
+                "Accessible by ADMIN, and MANAGER.",
 )
 async def get_leases_by_room(
     room_id: str = Path(..., description="Room MongoDB ObjectId string"),
     skip:  int = Query(default=0,  ge=0),
     limit: int = Query(default=20, ge=1, le=100),
     current_user=Depends(require_roles(
-        RoleName.ADMIN, RoleName.MANAGER, RoleName.STAFF
+        RoleName.ADMIN, RoleName.MANAGER
     )),
 ):
     data = await lease_service.get_leases_by_room(
@@ -261,12 +261,12 @@ async def get_leases_by_room(
     summary="Get active lease for a room",
     description="Returns the currently active lease for a specific room. "
                 "Raises 404 if no active lease exists. "
-                "Accessible by ADMIN, MANAGER, and STAFF.",
+                "Accessible by ADMIN, and MANAGER.",
 )
 async def get_active_lease_by_room(
     room_id: str = Path(..., description="Room MongoDB ObjectId string"),
     current_user=Depends(require_roles(
-        RoleName.ADMIN, RoleName.MANAGER, RoleName.STAFF
+        RoleName.ADMIN, RoleName.MANAGER
     )),
 ):
     data = await lease_service.get_active_lease_by_room(room_id)
@@ -310,12 +310,12 @@ async def get_my_lease(
     status_code=status.HTTP_200_OK,
     summary="Get lease by ID",
     description="Returns a single lease by its MongoDB ObjectId. "
-                "Accessible by ADMIN, MANAGER, and STAFF.",
+                "Accessible by ADMIN, and MANAGER.",
 )
 async def get_lease_by_id(
     lease_id: PydanticObjectId = Path(..., description="Lease MongoDB ObjectId"),
     current_user=Depends(require_roles(
-        RoleName.ADMIN, RoleName.MANAGER, RoleName.STAFF
+        RoleName.ADMIN, RoleName.MANAGER
     )),
 ):
     data = await lease_service.get_lease_by_id(lease_id)

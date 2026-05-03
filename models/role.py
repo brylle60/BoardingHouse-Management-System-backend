@@ -12,7 +12,6 @@ from models.user import RoleName
 ROLE_HIERARCHY: dict[RoleName, int] = {
     RoleName.TENANT:      1,
     RoleName.MAINTENANCE: 2,
-    RoleName.STAFF:       3,
     RoleName.MANAGER:     4,
     RoleName.ADMIN:       5,
 }
@@ -49,16 +48,7 @@ ROLE_PERMISSIONS: dict[RoleName, list[str]] = {
         "message:read",     "message:write",
         "notification:read",
     ],
-    RoleName.STAFF: [
-        "tenant:read",
-        "room:read",
-        "lease:read",
-        "payment:read",
-        "dashboard:read",
-        "maintenance:read",
-        "message:read",
-        "notification:read",
-    ],
+   
     RoleName.MAINTENANCE: [
         "room:read",
         "maintenance:read", "maintenance:write",
@@ -84,7 +74,6 @@ ROLE_PERMISSIONS: dict[RoleName, list[str]] = {
 ROLE_DISPLAY_NAMES: dict[RoleName, str] = {
     RoleName.ADMIN:       "Administrator",
     RoleName.MANAGER:     "Property Manager",
-    RoleName.STAFF:       "Staff",
     RoleName.MAINTENANCE: "Maintenance Personnel",
     RoleName.TENANT:      "Tenant",
 }
@@ -121,19 +110,9 @@ def is_higher_role(role_a: RoleName, role_b: RoleName) -> bool:
     """
     Returns True if role_a has higher authority than role_b.
 
-    Example:
-        is_higher_role(RoleName.ADMIN,   RoleName.STAFF)   → True
-        is_higher_role(RoleName.TENANT,  RoleName.MANAGER) → False
     """
     return get_role_level(role_a) > get_role_level(role_b)
 
-
-def is_staff_or_above(role: RoleName) -> bool:
-    """
-    Returns True if the role is STAFF, MANAGER, or ADMIN.
-    Used to guard internal staff-only endpoints.
-    """
-    return get_role_level(role) >= get_role_level(RoleName.STAFF)
 
 
 def is_manager_or_above(role: RoleName) -> bool:
