@@ -10,6 +10,7 @@ from repository.user_repository import (
     find_by_id,
     find_all,
     delete_user,
+    find_by_username,
 )
 from config.jwt_config import jwt_config
 from config.jwt_middleware import get_current_user   # adjust import to match yours
@@ -19,17 +20,31 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 # ── Auth dependency ───────────────────────────────────────────────────────────
 
-async def require_admin(current_user: User = Depends(get_current_user)):
+async def require_admin(current_user: dict = Depends(get_current_user)):
     """
     Reusable dependency — raises 403 if caller is not ADMIN.
     Equivalent to @PreAuthorize("hasRole('ADMIN')") in Spring.
     """
-    if current_user.role != RoleName.ADMIN:
+    username = current_user.get("username") if isinstance(current_user, dict) else None
+    if not username:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication payload.",
+        )
+
+    user = await find_by_username(username)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authenticated user no longer exists.",
+        )
+
+    if user.role != RoleName.ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required.",
         )
-    return current_user
+    return user
 
 
 # ── Request / Response schemas ────────────────────────────────────────────────
