@@ -7,12 +7,14 @@ from config.jwt_middleware import JwtAuthMiddleware
 from controllers.auth_controller import router as auth_router
 from controllers.room_controller import router as room_router   
 from controllers.admin_controller import router as admin_router
+#from scheduler.lease_expiry_scheduler import start_scheduler, stop_scheduler
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_database()
+    #start_scheduler()           
     yield
-
+   # stop_scheduler()
 app = FastAPI(
     title="Boarding House Management System",
     description="Python/FastAPI port of the Spring Boot auth layer",
