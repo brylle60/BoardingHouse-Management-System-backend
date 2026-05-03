@@ -2,6 +2,7 @@ from fastapi import Request, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
+from fastapi import Depends, HTTPException, status
 from typing import Callable
 
 from config.jwt_config import JwtConfig, JwtSettings
@@ -15,6 +16,15 @@ bearer_scheme = HTTPBearer(auto_error=False)
 _jwt_settings = JwtSettings()
 jwt_config = JwtConfig(_jwt_settings)
 
+def require_roles(*roles):
+    def role_checker(user=Depends(get_current_user)):
+        if user.role not in roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not enough permissions"
+            )
+        return user
+    return role_checker
 
 class JwtAuthMiddleware(BaseHTTPMiddleware):
     """

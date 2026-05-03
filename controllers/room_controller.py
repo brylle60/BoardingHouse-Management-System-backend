@@ -53,13 +53,13 @@ async def create_room(
     status_code=status.HTTP_200_OK,
     summary="Get all rooms",
     description="Returns a paginated list of all rooms. "
-                "Accessible by ADMIN, MANAGER, and STAFF.",
+                "Accessible by ADMIN, and MANAGER.",
 )
 async def get_all_rooms(
     skip:  int = Query(default=0,  ge=0),
     limit: int = Query(default=20, ge=1, le=100),
     current_user=Depends(require_roles(
-        RoleName.ADMIN, RoleName.MANAGER, RoleName.STAFF
+        RoleName.ADMIN, RoleName.MANAGER
     )),
 ):
     data = await room_service.get_all_rooms(skip=skip, limit=limit)
@@ -80,14 +80,14 @@ async def get_all_rooms(
     summary="Search rooms",
     description="Search rooms by room number or description. "
                 "Case-insensitive. "
-                "Accessible by ADMIN, MANAGER, and STAFF.",
+                "Accessible by ADMIN, and MANAGER.",
 )
 async def search_rooms(
     q:     str = Query(..., min_length=1, description="Search keyword"),
     skip:  int = Query(default=0,  ge=0),
     limit: int = Query(default=20, ge=1, le=100),
     current_user=Depends(require_roles(
-        RoleName.ADMIN, RoleName.MANAGER, RoleName.STAFF
+        RoleName.ADMIN, RoleName.MANAGER
     )),
 ):
     data = await room_service.search_rooms(
@@ -156,13 +156,13 @@ async def get_vacant_rooms_public(
     summary="Get all vacant rooms",
     description="Returns all rooms with VACANT status. "
                 "Used by room selection UI when assigning a tenant. "
-                "Accessible by ADMIN, MANAGER, and STAFF.",
+                "Accessible by ADMIN, and MANAGER.",
 )
 async def get_vacant_rooms(
     skip:  int = Query(default=0,  ge=0),
     limit: int = Query(default=20, ge=1, le=100),
     current_user=Depends(require_roles(
-        RoleName.ADMIN, RoleName.MANAGER, RoleName.STAFF
+        RoleName.ADMIN, RoleName.MANAGER
     )),
 ):
     data = await room_service.get_vacant_rooms(skip=skip, limit=limit)
@@ -183,13 +183,13 @@ async def get_vacant_rooms(
     summary="Get rooms under maintenance",
     description="Returns all rooms currently under maintenance. "
                 "Used by the maintenance dashboard. "
-                "Accessible by ADMIN, MANAGER, and STAFF.",
+                "Accessible by ADMIN, and MANAGER",
 )
 async def get_rooms_under_maintenance(
     skip:  int = Query(default=0,  ge=0),
     limit: int = Query(default=20, ge=1, le=100),
     current_user=Depends(require_roles(
-        RoleName.ADMIN, RoleName.MANAGER, RoleName.STAFF
+        RoleName.ADMIN, RoleName.MANAGER
     )),
 ):
     data = await room_service.get_rooms_under_maintenance(
@@ -212,14 +212,14 @@ async def get_rooms_under_maintenance(
     summary="Get rooms by status",
     description="Returns rooms filtered by status: "
                 "VACANT, OCCUPIED, MAINTENANCE, or RESERVED. "
-                "Accessible by ADMIN, MANAGER, and STAFF.",
+                "Accessible by ADMIN, and MANAGER.",
 )
 async def get_rooms_by_status(
     room_status: RoomStatus = Path(..., description="Room status filter"),
     skip:  int = Query(default=0,  ge=0),
     limit: int = Query(default=20, ge=1, le=100),
     current_user=Depends(require_roles(
-        RoleName.ADMIN, RoleName.MANAGER, RoleName.STAFF
+        RoleName.ADMIN, RoleName.MANAGER
     )),
 ):
     data = await room_service.get_rooms_by_status(
@@ -242,7 +242,7 @@ async def get_rooms_by_status(
     summary="Get rooms by type",
     description="Returns rooms filtered by type: "
                 "SINGLE, DOUBLE, STUDIO, DORMITORY, or SUITE. "
-                "Accessible by ADMIN, MANAGER, STAFF, and TENANT.",
+                "Accessible by ADMIN, MANAGER, and TENANT.",
 )
 async def get_rooms_by_type(
     room_type: RoomType = Path(..., description="Room type filter"),
@@ -250,7 +250,7 @@ async def get_rooms_by_type(
     limit: int = Query(default=20, ge=1, le=100),
     current_user=Depends(require_roles(
         RoleName.ADMIN, RoleName.MANAGER,
-        RoleName.STAFF, RoleName.TENANT,
+        RoleName.TENANT,
     )),
 ):
     data = await room_service.get_rooms_by_type(
@@ -272,7 +272,7 @@ async def get_rooms_by_type(
     status_code=status.HTTP_200_OK,
     summary="Get rooms by rate range",
     description="Returns rooms within a monthly rate range (PHP). "
-                "Accessible by ADMIN, MANAGER, STAFF, and TENANT.",
+                "Accessible by ADMIN, MANAGER, and TENANT.",
 )
 async def get_rooms_by_rate_range(
     min_rate: float = Query(..., ge=0,   description="Minimum monthly rate in PHP"),
@@ -281,7 +281,7 @@ async def get_rooms_by_rate_range(
     limit:    int   = Query(default=20, ge=1, le=100),
     current_user=Depends(require_roles(
         RoleName.ADMIN, RoleName.MANAGER,
-        RoleName.STAFF, RoleName.TENANT,
+        RoleName.TENANT,
     )),
 ):
     data = await room_service.get_rooms_by_rate_range(
@@ -303,12 +303,12 @@ async def get_rooms_by_rate_range(
     status_code=status.HTTP_200_OK,
     summary="Get room by room number",
     description="Returns a single room by its room number (e.g. '101', '2A'). "
-                "Accessible by ADMIN, MANAGER, and STAFF.",
+                "Accessible by ADMIN, and MANAGER.",
 )
 async def get_room_by_number(
     room_number: str = Path(..., description="Room number string"),
     current_user=Depends(require_roles(
-        RoleName.ADMIN, RoleName.MANAGER, RoleName.STAFF
+        RoleName.ADMIN, RoleName.MANAGER,
     )),
 ):
     data = await room_service.get_room_by_number(room_number)
@@ -328,12 +328,12 @@ async def get_room_by_number(
     status_code=status.HTTP_200_OK,
     summary="Get room by ID",
     description="Returns a single room by its MongoDB ObjectId. "
-                "Accessible by ADMIN, MANAGER, and STAFF.",
+                "Accessible by ADMIN, and MANAGER",
 )
 async def get_room_by_id(
     room_id: PydanticObjectId = Path(..., description="Room MongoDB ObjectId"),
     current_user=Depends(require_roles(
-        RoleName.ADMIN, RoleName.MANAGER, RoleName.STAFF
+        RoleName.ADMIN, RoleName.MANAGER
     )),
 ):
     data = await room_service.get_room_by_id(room_id)

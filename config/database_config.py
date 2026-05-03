@@ -7,8 +7,18 @@ from models.tenant import Tenant
 from models.user import User
 from models.room import Room
 from models.otp import OtpCode
+from models.lease import Lease
+from models.notification import Notification
+from models.message import Message, Announcement
 
-
+document_models=[
+    User,
+    Tenant,
+    Room,
+    Lease,
+    Notification,   # ← add this
+]
+document_models=[User, Tenant, Room, Lease]
 
 class DataSettings(BaseSettings):
     # Pydantic will automatically look for MONGODB_URL and MONGODB_NAME in your .env
@@ -29,7 +39,12 @@ async def init_database():
     await init_beanie(
         database=database,
         document_models = [
-            User,Tenant,OtpCode,Room,
+            User,
+            Tenant,
+            OtpCode,
+            Room,
+            Message,
+            Announcement,
         ]
     )
     print("Connected to MongoDB:", settings.mongodb_name)

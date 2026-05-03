@@ -265,7 +265,6 @@ async def get_user_stats(_: User = Depends(require_admin)):
         "by_role": {
             "admin":       sum(1 for u in all_users if u.role == RoleName.ADMIN),
             "manager":     sum(1 for u in all_users if u.role == RoleName.MANAGER),
-            "staff":       sum(1 for u in all_users if u.role == RoleName.STAFF),
             "maintenance": sum(1 for u in all_users if u.role == RoleName.MAINTENANCE),
             "tenant":      sum(1 for u in all_users if u.role == RoleName.TENANT),
         }

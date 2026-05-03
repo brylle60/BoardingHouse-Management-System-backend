@@ -41,16 +41,6 @@ async def get_users_by_roles(roles: list[RoleName]) -> list[User]:
     ).to_list()
 
 
-async def get_staff_and_above() -> list[User]:
-    """
-    Returns all users with STAFF, MANAGER, or ADMIN role.
-    Used by admin user management to list internal staff.
-    """
-    staff_roles = [
-        role for role in RoleName
-        if get_role_level(role) >= get_role_level(RoleName.STAFF)
-    ]
-    return await get_users_by_roles(staff_roles)
 
 
 async def get_managers_and_above() -> list[User]:
@@ -79,13 +69,7 @@ async def get_role_of_user(user_id: PydanticObjectId) -> Optional[RoleName]:
 
 
 async def count_users_by_role(role: RoleName) -> int:
-    """
-    Returns the count of users assigned to a specific role.
-    Used by DashboardService for staff stats.
-
-    Example:
-        await count_users_by_role(RoleName.TENANT) → 42
-    """
+    
     return await User.find(User.role == role).count()
 
 
@@ -98,7 +82,6 @@ async def count_all_roles() -> dict[str, int]:
         {
             "ROLE_ADMIN":       1,
             "ROLE_MANAGER":     2,
-            "ROLE_STAFF":       3,
             "ROLE_MAINTENANCE": 1,
             "ROLE_TENANT":      42,
         }
@@ -163,19 +146,7 @@ async def bulk_assign_role(
     new_role:   RoleName,
     updated_by: str,
 ) -> int:
-    """
-    Assigns the same role to multiple users at once.
-    Returns the count of successfully updated users.
-    Used by admin bulk operations.
-
-    Example:
-        count = await bulk_assign_role(
-            [id1, id2, id3],
-            RoleName.STAFF,
-            "admin_user"
-        )
-        → 3
-    """
+   
     updated_count = 0
     for user_id in user_ids:
         result = await assign_role(user_id, new_role, updated_by)
@@ -189,8 +160,7 @@ async def revoke_role_to_default(
     updated_by: str,
 ) -> Optional[User]:
     """
-    Resets a user's role back to the default TENANT role.
-    Used when staff leave or a role needs to be removed.
+
 
     Example:
         await revoke_role_to_default(user.id, "admin_user")
