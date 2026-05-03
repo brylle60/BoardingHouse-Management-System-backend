@@ -110,7 +110,7 @@ async def get_unverified_tenants(
 ) -> list[Tenant]:
     """
     Returns tenants whose government ID has not yet been verified.
-    Used by admin/staff for ID review queue.
+    
     """
     return await Tenant.find(
         Tenant.government_id != None,                                   # noqa: E711
@@ -309,7 +309,7 @@ async def verify_government_id(
     """
     Marks the tenant's government ID as verified.
     Records who verified it and when.
-    Called by admin/staff after manual document review.
+   
     """
     tenant = await Tenant.get(tenant_id)
     if not tenant or not tenant.government_id:

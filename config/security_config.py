@@ -48,13 +48,14 @@ def configure_cors(app: FastAPI) -> None:
 # ---------------------------------------------------------------------------
 
 PUBLIC_ROUTES = {
+    "/api/rooms/public/vacant",
     # ── Authentication endpoints ──────────────────────────────────────────
     "/api/auth/login",
     "/api/auth/register",
     "/api/auth/forgot-password",
     "/api/auth/verify-otp",
     "/api/auth/reset-password",
- 
+
     # ── OAuth endpoints (future) ──────────────────────────────────────────
     "/api/auth/google",
     "/api/auth/google/callback",
@@ -74,4 +75,5 @@ PUBLIC_ROUTES = {
 
 PROTECTED_ROUTES = {
     "/home",
+    "/admin",
 }

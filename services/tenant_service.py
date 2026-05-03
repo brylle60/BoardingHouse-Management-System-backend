@@ -170,7 +170,7 @@ async def register_tenant(
     - User must not already have a tenant profile
     - Email and phone must be unique across all tenants
 
-    Status is set to PENDING until staff approves and assigns a room.
+  
     """
     await _assert_user_exists(request.user_id)
     await _assert_no_existing_tenant_profile(request.user_id)
@@ -576,7 +576,6 @@ async def verify_tenant_id(
     verified_by: str
 ) -> TenantResponse:
     """
-    Marks a tenant's government ID as verified after manual staff review.
 
     Validations:
     - Tenant must exist
