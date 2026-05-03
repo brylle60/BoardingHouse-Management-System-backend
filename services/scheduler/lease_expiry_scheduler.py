@@ -205,8 +205,7 @@ async def auto_renew_leases(default_extension_months: int = 12) -> None:
     Extension period defaults to 12 months.
     Monthly rate stays the same on auto-renewal.
 
-    Used for long-term tenants who don't need manual renewal
-    every year. Can be overridden by staff at any time.
+
     """
     logger.info("[Scheduler] auto_renew_leases — started")
 

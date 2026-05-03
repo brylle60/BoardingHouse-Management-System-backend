@@ -21,7 +21,7 @@ class GovernmentIDResponse(BaseModel):
     id_number:   str
     issued_date: Optional[date] = None
     expiry_date: Optional[date] = None
-    verified:    bool = False       # staff verifies manually
+    verified:    bool = False      
 
 
 class EmergencyContactResponse(BaseModel):

@@ -48,7 +48,7 @@ class LeaseTerminationDetails(BaseModel):
     Only populated when status is TERMINATED or EXPIRED.
     """
     reason:           TerminationReason
-    terminated_by:    str               # username of staff who processed it
+    terminated_by:    str               
     terminated_at:    datetime          = Field(default_factory=datetime.utcnow)
     notes:            Optional[str]     = None
     deposit_returned: bool              = False
@@ -62,7 +62,7 @@ class LeaseRenewalRecord(BaseModel):
     Appended to renewal_history each time a lease is renewed.
     """
     renewed_at:       datetime  = Field(default_factory=datetime.utcnow)
-    renewed_by:       str       # username of staff who processed renewal
+    renewed_by:       str      
     previous_end_date: date     # end date before renewal
     new_end_date:     date      # end date after renewal
     new_monthly_rate: Optional[float] = None   # rate change on renewal
@@ -150,7 +150,7 @@ class Lease(Document):
     # ── Audit Fields ──────────────────────────────────────────
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-    created_by: Optional[str] = None   # username of staff who created the lease
+    created_by: Optional[str] = None  
     updated_by: Optional[str] = None   # username of last editor
 
     # ── Beanie Settings ───────────────────────────────────────
