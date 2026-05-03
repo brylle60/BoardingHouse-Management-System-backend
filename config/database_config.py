@@ -7,6 +7,7 @@ from models.tenant import Tenant
 from models.user import User
 from models.room import Room
 from models.otp import OtpCode
+from models.message import Message, Announcement
 
 
 
@@ -29,7 +30,12 @@ async def init_database():
     await init_beanie(
         database=database,
         document_models = [
-            User,Tenant,OtpCode,Room,
+            User,
+            Tenant,
+            OtpCode,
+            Room,
+            Message,
+            Announcement,
         ]
     )
     print("Connected to MongoDB:", settings.mongodb_name)
