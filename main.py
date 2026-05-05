@@ -7,6 +7,7 @@ from config.jwt_middleware import JwtAuthMiddleware
 from controllers.auth_controller import router as auth_router
 from controllers.room_controller import router as room_router   
 from controllers.admin_controller import router as admin_router
+from controllers.manager_controller       import router as manager_router
 from services.lease_expiry_scheduler import start_scheduler, stop_scheduler
 from controllers.notification_controller import router as notification_router
   # ← add this
@@ -34,6 +35,7 @@ app.add_middleware(JwtAuthMiddleware)
 
 app.include_router(room_router)   
 app.include_router(auth_router)
+app.include_router(manager_router)
 app.include_router(admin_router) 
 app.include_router(notification_router)
 

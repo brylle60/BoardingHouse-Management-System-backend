@@ -1,16 +1,4 @@
-# ============================================================
-# services/lease_expiry_scheduler.py
-# ResidEase – Boarding House Management System
-#
-# Runs background jobs to:
-# 1. Expire leases whose end_date has passed
-# 2. Flag leases expiring within 30 days (is_expiring_soon)
-# 3. Auto-renew leases with auto_renew = True
-#
-# Equivalent to @Scheduled in Spring Boot.
-# Uses APScheduler — install with:
-#   pip install apscheduler
-# ============================================================
+
 
 import logging
 from datetime import date, datetime, timedelta

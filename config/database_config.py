@@ -3,6 +3,8 @@ from beanie import init_beanie
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import Field
 from pydantic_settings import BaseSettings
+from models.maintenance import MaintenanceRequest
+from models.payment import Payment
 from models.tenant import Tenant
 from models.user import User
 from models.room import Room
@@ -45,6 +47,10 @@ async def init_database():
             Room,
             Message,
             Announcement,
+            Notification,
+            Lease,
+            Payment,
+            MaintenanceRequest,
         ]
     )
     print("Connected to MongoDB:", settings.mongodb_name)
