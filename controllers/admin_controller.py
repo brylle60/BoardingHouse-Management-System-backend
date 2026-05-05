@@ -2,10 +2,11 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Any
 from datetime import datetime
 
 from models.user import User, RoleName, UserStatus
+from models.role import get_all_roles
 from repository.user_repository import (
     find_by_id,
     find_all,
@@ -16,6 +17,17 @@ from config.jwt_config import jwt_config
 from config.jwt_middleware import get_current_user   # adjust import to match yours
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
+
+APP_STARTED_AT = datetime.utcnow()
+AUDIT_LOGS: list[dict[str, Any]] = []
+SYSTEM_SETTINGS: dict[str, Any] = {
+    "site_name": "ResidEase",
+    "maintenance_mode": False,
+    "allow_registration": True,
+    "default_user_role": RoleName.TENANT.value,
+    "session_timeout_minutes": 60,
+    "support_email": "support@residease.local",
+}
 
 
 # ── Auth dependency ───────────────────────────────────────────────────────────
@@ -75,6 +87,15 @@ class UserListResponse(BaseModel):
     users:  list[UserSummary]
 
 
+class SystemSettingsRequest(BaseModel):
+    site_name: Optional[str] = None
+    maintenance_mode: Optional[bool] = None
+    allow_registration: Optional[bool] = None
+    default_user_role: Optional[RoleName] = None
+    session_timeout_minutes: Optional[int] = None
+    support_email: Optional[str] = None
+
+
 # ── Helper ────────────────────────────────────────────────────────────────────
 
 def to_user_summary(user: User) -> UserSummary:
@@ -91,6 +112,27 @@ def to_user_summary(user: User) -> UserSummary:
         status     = user.status,
         last_login = user.last_login,
         created_at = user.created_at,
+    )
+
+
+def add_audit_log(
+    *,
+    action: str,
+    actor_username: str,
+    target_type: str,
+    target_id: str,
+    details: dict[str, Any] | None = None,
+) -> None:
+    AUDIT_LOGS.append(
+        {
+            "id": str(len(AUDIT_LOGS) + 1),
+            "timestamp": datetime.utcnow().isoformat(),
+            "action": action,
+            "actor": actor_username,
+            "target_type": target_type,
+            "target_id": target_id,
+            "details": details or {},
+        }
     )
 
 
@@ -194,6 +236,13 @@ async def update_role(
     user.updated_at = datetime.utcnow()
     await user.save()
 
+    add_audit_log(
+        action="user.role.updated",
+        actor_username=current_admin.username,
+        target_type="user",
+        target_id=str(user.id),
+        details={"old_role": old_role.value, "new_role": body.role.value},
+    )
     print(f"[AUDIT] Role changed: {user.username} | {old_role} → {body.role} | by {current_admin.username}")
 
     return to_user_summary(user)
@@ -228,6 +277,13 @@ async def update_status(
     user.updated_at = datetime.utcnow()
     await user.save()
 
+    add_audit_log(
+        action="user.status.updated",
+        actor_username=current_admin.username,
+        target_type="user",
+        target_id=str(user.id),
+        details={"old_status": old_status.value, "new_status": body.status.value},
+    )
     print(f"[AUDIT] Status changed: {user.username} | {old_status} → {body.status} | by {current_admin.username}")
 
     return to_user_summary(user)
@@ -257,6 +313,13 @@ async def delete_user_account(
     username = user.username
     await user.delete()
 
+    add_audit_log(
+        action="user.deleted",
+        actor_username=current_admin.username,
+        target_type="user",
+        target_id=user_id,
+        details={"username": username},
+    )
     print(f"[AUDIT] Account deleted: {username} | by {current_admin.username}")
 
     return {"message": f"Account '{username}' has been permanently deleted."}
@@ -283,4 +346,102 @@ async def get_user_stats(_: User = Depends(require_admin)):
             "maintenance": sum(1 for u in all_users if u.role == RoleName.MAINTENANCE),
             "tenant":      sum(1 for u in all_users if u.role == RoleName.TENANT),
         }
+    }
+
+
+@router.get(
+    "/roles-permissions",
+    summary="Get all roles with hierarchy and permissions",
+)
+async def get_roles_permissions(_: User = Depends(require_admin)):
+    return {"roles": get_all_roles()}
+
+
+@router.get(
+    "/audit-logs",
+    summary="Get admin audit logs",
+)
+async def get_audit_logs(
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=20, ge=1, le=100),
+    action: Optional[str] = Query(default=None),
+    actor: Optional[str] = Query(default=None),
+    target_type: Optional[str] = Query(default=None),
+    _: User = Depends(require_admin),
+):
+    logs = list(reversed(AUDIT_LOGS))
+    if action:
+        logs = [log for log in logs if log["action"] == action]
+    if actor:
+        logs = [log for log in logs if log["actor"] == actor]
+    if target_type:
+        logs = [log for log in logs if log["target_type"] == target_type]
+
+    total = len(logs)
+    offset = (page - 1) * limit
+    paged = logs[offset: offset + limit]
+    return {
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "logs": paged,
+    }
+
+
+@router.get(
+    "/system-health",
+    summary="Get backend system health for admin dashboard",
+)
+async def get_system_health(_: User = Depends(require_admin)):
+    db_connected = True
+    user_count = 0
+    try:
+        user_count = await User.find_all().count()
+    except Exception:
+        db_connected = False
+
+    uptime_seconds = int((datetime.utcnow() - APP_STARTED_AT).total_seconds())
+    return {
+        "status": "healthy" if db_connected else "degraded",
+        "timestamp": datetime.utcnow().isoformat(),
+        "uptime_seconds": uptime_seconds,
+        "database": {"connected": db_connected},
+        "stats": {"users": user_count},
+    }
+
+
+@router.get(
+    "/system-settings",
+    summary="Get system settings",
+)
+async def get_system_settings(_: User = Depends(require_admin)):
+    return SYSTEM_SETTINGS
+
+
+@router.patch(
+    "/system-settings",
+    summary="Update system settings",
+)
+async def update_system_settings(
+    body: SystemSettingsRequest,
+    current_admin: User = Depends(require_admin),
+):
+    updates = body.model_dump(exclude_none=True)
+    if "default_user_role" in updates and isinstance(updates["default_user_role"], RoleName):
+        updates["default_user_role"] = updates["default_user_role"].value
+
+    if "session_timeout_minutes" in updates and updates["session_timeout_minutes"] <= 0:
+        raise HTTPException(400, "session_timeout_minutes must be greater than 0.")
+
+    SYSTEM_SETTINGS.update(updates)
+    add_audit_log(
+        action="system.settings.updated",
+        actor_username=current_admin.username,
+        target_type="system_settings",
+        target_id="global",
+        details={"updated_fields": list(updates.keys())},
+    )
+    return {
+        "message": "System settings updated successfully.",
+        "settings": SYSTEM_SETTINGS,
     }
