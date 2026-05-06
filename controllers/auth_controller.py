@@ -3,6 +3,9 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 import httpx
 
+# ✅ All imports at the top — no inline imports inside functions
+from models.user import User, RoleName
+from config.jwt_config import jwt_config
 from dto.request.login_request    import LoginRequest
 from dto.request.register_request import RegisterRequest
 from dto.response.auth_response   import LoginResponse
@@ -44,7 +47,6 @@ async def register(body: RegisterRequest):
     if await exists_by_email(body.email):
         raise HTTPException(400, "Email already in use")
 
-    from models.user import User, RoleName
     user = User(
         username   = body.username,
         email      = body.email,
@@ -102,9 +104,6 @@ async def google_login():
 @router.get("/google/callback")
 async def google_callback(code: str, request: Request):
     """Handle Google redirect — create/login user — redirect to frontend."""
-    from models.user import User, RoleName
-    from config.jwt_config import jwt_config
-
     client = get_google_client()
 
     # Step 1: Exchange authorization code for access token
@@ -117,7 +116,7 @@ async def google_callback(code: str, request: Request):
     except Exception as e:
         raise HTTPException(400, f"Failed to exchange Google authorization code: {str(e)}")
 
-    # Step 2: Use httpx directly to fetch Google user info
+    # Step 2: Fetch Google user info
     try:
         access_token = token.get("access_token")
         async with httpx.AsyncClient() as http:
@@ -141,7 +140,6 @@ async def google_callback(code: str, request: Request):
     # Step 3: Find existing user or auto-register
     user = await find_by_email(email)
     if not user:
-        # Auto-generate unique username from email prefix
         base_username = email.split("@")[0]
         username      = base_username
         counter       = 1
@@ -149,7 +147,6 @@ async def google_callback(code: str, request: Request):
             username = f"{base_username}{counter}"
             counter += 1
 
-        from models.user import User, RoleName
         user = User(
             username        = username,
             email           = email,
@@ -162,14 +159,21 @@ async def google_callback(code: str, request: Request):
         await save_user(user)
 
     # Step 4: Issue JWT tokens
-    access_token  = jwt_config.generate_token(user.username)
+    role_value    = user.role.value if hasattr(user.role, "value") else str(user.role)
+    access_token  = jwt_config.generate_token(
+        user.username,
+        extra_claims={"roles": [role_value]},
+    )
     refresh_token = jwt_config.generate_refresh_token(user.username)
 
-    # Step 5: Redirect to frontend with tokens
+    # Step 5: Redirect to frontend with tokens + user context
     redirect_url = (
         f"{FRONTEND_URL}/auth/google/callback"
         f"?access_token={access_token}"
         f"&refresh_token={refresh_token}"
         f"&username={user.username}"
+        f"&role={role_value}"
+        f"&id={str(user.id)}"
+        f"&email={user.email}"
     )
     return RedirectResponse(redirect_url)

@@ -84,10 +84,10 @@ class AuthenticationService:
         return {"reset_token": reset_token}
 
     async def reset_password(self, reset_token: str, new_password: str):
-        username = jwt_config.get_username_from_token(reset_token)
-        if not username:
+        email = jwt_config.get_username_from_token(reset_token)  # ✅ renamed: sub holds email
+        if not email:
             raise HTTPException(400, "Invalid or expired reset token")
-        user = await find_by_email(username)
+        user = await find_by_email(email)
         if not user:
             raise HTTPException(404, "User not found")
         user.password   = self.encode_password(new_password)

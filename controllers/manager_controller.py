@@ -29,7 +29,8 @@ from config.jwt_middleware import get_current_user
 from services import room_service
 from services import lease_service
 from services import payment_service
-from services import maintenance_service
+# maintenance_service is class-based — import the singleton instance, not the module
+from services.maintenance_service import maintenance_service
 
 # ── Import your groupmates' existing DTOs ────────────────────────────────────
 from dto.request.room_request       import RoomCreateRequest, RoomUpdateRequest
@@ -70,9 +71,26 @@ async def require_manager(current_user: User = Depends(get_current_user)):
 @router.get("/dashboard", summary="Manager dashboard stats")
 async def get_manager_dashboard(_: User = Depends(require_manager)):
     """Combined stats — occupancy + leases + maintenance."""
-    room_stats        = await room_service.get_room_stats()
-    lease_stats       = await lease_service.get_lease_stats()
-    maintenance_stats = await maintenance_service.get_maintenance_stats()
+    import logging
+    logger = logging.getLogger(__name__)
+
+    try:
+        room_stats = await room_service.get_room_stats()
+    except Exception as exc:
+        logger.error("room_service.get_room_stats() failed: %s", exc, exc_info=True)
+        room_stats = {"total": 0, "vacant": 0, "occupied": 0, "occupancy_rate_pct": 0}
+
+    try:
+        lease_stats = await lease_service.get_lease_stats()
+    except Exception as exc:
+        logger.error("lease_service.get_lease_stats() failed: %s", exc, exc_info=True)
+        lease_stats = {"total": 0, "active": 0}
+
+    try:
+        maintenance_stats = await maintenance_service.get_maintenance_stats()
+    except Exception as exc:
+        logger.error("maintenance_service.get_maintenance_stats() failed: %s", exc, exc_info=True)
+        maintenance_stats = {"submitted": 0, "in_progress": 0}
 
     return {
         "rooms":       room_stats,

@@ -1,10 +1,7 @@
-
-
 from fastapi import APIRouter, Depends, HTTPException, status
-from models.user import User
-from config.jwt_middleware import get_current_user
+from models.user import User, RoleName
+from config.jwt_middleware import get_current_user, require_roles
 from services.communication_service import communication_service
-from repository.user_repository import find_by_username
 from dto.request.message_request import SendMessageRequest, CreateAnnouncementRequest
 from dto.response.message_response import (
     MessageResponse, ThreadResponse, AnnouncementResponse,
@@ -13,18 +10,6 @@ from dto.response.message_response import (
 from models.message import AnnouncementPriority
 
 router = APIRouter(prefix="/api", tags=["communication"])
-
-
-async def get_authenticated_user(current_user: dict = Depends(get_current_user)) -> User:
-    username = current_user.get("username") if isinstance(current_user, dict) else None
-    if not username:
-        raise HTTPException(status_code=401, detail="Invalid authentication payload.")
-
-    user = await find_by_username(username)
-    if not user:
-        raise HTTPException(status_code=401, detail="Authenticated user no longer exists.")
-
-    return user
 
 
 # ============================================================================
@@ -39,7 +24,7 @@ async def get_authenticated_user(current_user: dict = Depends(get_current_user))
 )
 async def send_message(
     body: SendMessageRequest,
-    current_user: User = Depends(get_authenticated_user),
+    current_user: User = Depends(get_current_user),
 ):
     message = await communication_service.send_message(
         sender_id   = str(current_user.id),
@@ -60,7 +45,7 @@ async def send_message(
 )
 async def get_tenant_messages(
     tenant_id: str,
-    current_user: User = Depends(get_authenticated_user),
+    current_user: User = Depends(get_current_user),
 ):
     messages = await communication_service.get_tenant_inbox(tenant_id)
     return [to_message_response(m) for m in messages]
@@ -73,7 +58,7 @@ async def get_tenant_messages(
 )
 async def get_thread(
     thread_id: str,
-    current_user: User = Depends(get_authenticated_user),
+    current_user: User = Depends(get_current_user),
 ):
     messages = await communication_service.get_thread(thread_id)
     return ThreadResponse(
@@ -89,7 +74,7 @@ async def get_thread(
     summary="Get unread messages for current user",
 )
 async def get_unread_messages(
-    current_user: User = Depends(get_authenticated_user),
+    current_user: User = Depends(get_current_user),
 ):
     messages = await communication_service.get_unread_messages(str(current_user.id))
     return [to_message_response(m) for m in messages]
@@ -100,7 +85,7 @@ async def get_unread_messages(
     summary="Get unread message count for notification badge",
 )
 async def get_unread_count(
-    current_user: User = Depends(get_authenticated_user),
+    current_user: User = Depends(get_current_user),
 ):
     count = await communication_service.get_unread_count(str(current_user.id))
     return {"unread_messages": count}
@@ -112,7 +97,7 @@ async def get_unread_count(
 )
 async def mark_thread_read(
     thread_id: str,
-    current_user: User = Depends(get_authenticated_user),
+    current_user: User = Depends(get_current_user),
 ):
     return await communication_service.read_thread(thread_id, str(current_user.id))
 
@@ -123,7 +108,7 @@ async def mark_thread_read(
 )
 async def delete_message(
     message_id: str,
-    current_user: User = Depends(get_authenticated_user),
+    current_user: User = Depends(get_current_user),
 ):
     return await communication_service.delete_message(message_id)
 
@@ -140,12 +125,8 @@ async def delete_message(
 )
 async def create_announcement(
     body: CreateAnnouncementRequest,
-    current_user: User = Depends(get_authenticated_user),
+    current_user: User = Depends(require_roles(RoleName.ADMIN, RoleName.MANAGER)),  # ✅ require_roles
 ):
-    from models.user import RoleName
-    if current_user.role not in [RoleName.ADMIN, RoleName.MANAGER]:
-        raise HTTPException(403, "Manager or Admin access required.")
-
     announcement = await communication_service.create_announcement(
         author_id         = str(current_user.id),
         title             = body.title,
@@ -164,11 +145,8 @@ async def create_announcement(
     summary="Get all announcements (Manager/Admin view)",
 )
 async def get_all_announcements(
-    current_user: User = Depends(get_authenticated_user),
+    current_user: User = Depends(require_roles(RoleName.ADMIN, RoleName.MANAGER)),  # ✅ require_roles
 ):
-    from models.user import RoleName
-    if current_user.role not in [RoleName.ADMIN, RoleName.MANAGER]:
-        raise HTTPException(403, "Manager or Admin access required.")
     announcements = await communication_service.get_all_announcements()
     return [to_announcement_response(a) for a in announcements]
 
@@ -179,7 +157,7 @@ async def get_all_announcements(
     summary="Get published announcements (tenant view)",
 )
 async def get_published_announcements(
-    current_user: User = Depends(get_authenticated_user),
+    current_user: User = Depends(get_current_user),
 ):
     announcements = await communication_service.get_published_announcements()
     return [to_announcement_response(a) for a in announcements]
@@ -192,7 +170,7 @@ async def get_published_announcements(
 )
 async def get_tenant_announcements(
     tenant_id: str,
-    current_user: User = Depends(get_authenticated_user),
+    current_user: User = Depends(get_current_user),
 ):
     announcements = await communication_service.get_announcements_for_tenant(tenant_id)
     return [to_announcement_response(a) for a in announcements]
@@ -205,11 +183,8 @@ async def get_tenant_announcements(
 )
 async def publish_announcement(
     announcement_id: str,
-    current_user: User = Depends(get_authenticated_user),
+    current_user: User = Depends(require_roles(RoleName.ADMIN, RoleName.MANAGER)),  # ✅ require_roles
 ):
-    from models.user import RoleName
-    if current_user.role not in [RoleName.ADMIN, RoleName.MANAGER]:
-        raise HTTPException(403, "Manager or Admin access required.")
     announcement = await communication_service.publish_announcement(announcement_id)
     return to_announcement_response(announcement)
 
@@ -221,11 +196,8 @@ async def publish_announcement(
 )
 async def archive_announcement(
     announcement_id: str,
-    current_user: User = Depends(get_authenticated_user),
+    current_user: User = Depends(require_roles(RoleName.ADMIN, RoleName.MANAGER)),  # ✅ require_roles
 ):
-    from models.user import RoleName
-    if current_user.role not in [RoleName.ADMIN, RoleName.MANAGER]:
-        raise HTTPException(403, "Manager or Admin access required.")
     announcement = await communication_service.archive_announcement(announcement_id)
     return to_announcement_response(announcement)
 
@@ -238,7 +210,7 @@ async def archive_announcement(
 async def mark_announcement_read(
     announcement_id: str,
     tenant_id: str,
-    current_user: User = Depends(get_authenticated_user),
+    current_user: User = Depends(get_current_user),
 ):
     announcement = await communication_service.mark_announcement_read(
         announcement_id, tenant_id
@@ -252,9 +224,6 @@ async def mark_announcement_read(
 )
 async def delete_announcement(
     announcement_id: str,
-    current_user: User = Depends(get_authenticated_user),
+    current_user: User = Depends(require_roles(RoleName.ADMIN, RoleName.MANAGER)),  # ✅ require_roles
 ):
-    from models.user import RoleName
-    if current_user.role not in [RoleName.ADMIN, RoleName.MANAGER]:
-        raise HTTPException(403, "Manager or Admin access required.")
     return await communication_service.delete_announcement(announcement_id)
