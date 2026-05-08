@@ -13,8 +13,8 @@ class JwtSettings(BaseSettings):
     # JWT_SECRET, JWT_EXPIRATION, and JWT_REFRESH_EXPIRATION
     
     secret: str = Field(..., alias="JWT_SECRET")
-    expiration: int = Field(default=3600, alias="JWT_EXPIRATION")          # Default 1h
-    refresh_expiration: int = Field(default=604800, alias="JWT_REFRESH_EXPIRATION") # Default 7d
+    expiration: int = Field(default=3600, alias="JWT_EXPIRATION")          # seconds (default: 1h)
+    refresh_expiration: int = Field(default=604800, alias="JWT_REFRESH_EXPIRATION") # seconds (default: 7d)
     model_config = {
         "env_prefix": "JWT_",
         "env_file": ".env",
@@ -50,10 +50,11 @@ class JwtConfig:
         """Equivalent to generateRefreshToken(UserDetails)"""
         return self._create_token({}, username, self.settings.refresh_expiration)
 
-    def _create_token(self, claims: dict, subject: str, expiration_ms: int) -> str:
+    def _create_token(self, claims: dict, subject: str, expiration_seconds: int) -> str:
         """Equivalent to createToken() — builds and signs the JWT"""
         now = datetime.utcnow()
-        expire = now + timedelta(milliseconds=expiration_ms)
+        # JWT_EXPIRATION values are in seconds (e.g., 3600 = 1 hour).
+        expire = now + timedelta(seconds=expiration_seconds)
 
         payload = {
             **claims,
