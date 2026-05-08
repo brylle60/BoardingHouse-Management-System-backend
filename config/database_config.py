@@ -12,15 +12,8 @@ from models.otp import OtpCode
 from models.lease import Lease
 from models.notification import Notification
 from models.message import Message, Announcement
-
-document_models=[
-    User,
-    Tenant,
-    Room,
-    Lease,
-    Notification,   # ← add this
-]
-document_models=[User, Tenant, Room, Lease]
+from models.manager_role_request import ManagerRoleRequest
+from models.booking_request import BookingRequest
 
 class DataSettings(BaseSettings):
     # Pydantic will automatically look for MONGODB_URL and MONGODB_NAME in your .env
@@ -51,6 +44,8 @@ async def init_database():
             Lease,
             Payment,
             MaintenanceRequest,
+            ManagerRoleRequest,
+            BookingRequest,
         ]
     )
     print("Connected to MongoDB:", settings.mongodb_name)
