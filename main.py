@@ -11,7 +11,10 @@ from controllers.lease_controller import router as lease_router
 from controllers.communication_controller import router as communication_router
 from controllers.admin_controller import router as admin_router
 from controllers.manager_controller import router as manager_router
+from controllers.manager_role_request_controller import router as manager_request_router
+from controllers.booking_request_controller import router as booking_router
 from services.lease_expiry_scheduler import start_scheduler, stop_scheduler
+from controllers.maintenance_request_controller import router as maintenance_router
 from controllers.notification_controller import router as notification_router
 
 
@@ -40,6 +43,9 @@ app.include_router(lease_router)
 app.include_router(communication_router)
 app.include_router(manager_router)
 app.include_router(admin_router)
+app.include_router(manager_request_router)
+app.include_router(booking_router)
+app.include_router(maintenance_router)
 app.include_router(notification_router)
 
 
