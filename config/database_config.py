@@ -3,6 +3,8 @@ from beanie import init_beanie
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import Field
 from pydantic_settings import BaseSettings
+from models.maintenance import MaintenanceRequest
+from models.payment import Payment
 from models.tenant import Tenant
 from models.user import User
 from models.room import Room
@@ -10,16 +12,18 @@ from models.otp import OtpCode
 from models.lease import Lease
 from models.notification import Notification
 from models.message import Message, Announcement
+from models.manager_role_request import ManagerRoleRequest
+from models.booking_request import BookingRequest
+from models.system_setting import SystemSetting
 
 document_models=[
     User,
     Tenant,
     Room,
     Lease,
-    Notification,   # ← add this
+    Notification,
+    SystemSetting,   # ← add this
 ]
-document_models=[User, Tenant, Room, Lease]
-
 class DataSettings(BaseSettings):
     # Pydantic will automatically look for MONGODB_URL and MONGODB_NAME in your .env
     mongodb_url: str = Field(..., alias="DATABASE_URL") 
@@ -45,6 +49,12 @@ async def init_database():
             Room,
             Message,
             Announcement,
+            Notification,
+            Lease,
+            Payment,
+            MaintenanceRequest,
+            ManagerRoleRequest,
+            BookingRequest,
         ]
     )
     print("Connected to MongoDB:", settings.mongodb_name)

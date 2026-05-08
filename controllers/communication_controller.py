@@ -1,8 +1,6 @@
-
-
 from fastapi import APIRouter, Depends, HTTPException, status
-from models.user import User
-from config.jwt_middleware import get_current_user
+from models.user import User, RoleName
+from config.jwt_middleware import get_current_user, require_roles
 from services.communication_service import communication_service
 from dto.request.message_request import SendMessageRequest, CreateAnnouncementRequest
 from dto.response.message_response import (
@@ -127,12 +125,8 @@ async def delete_message(
 )
 async def create_announcement(
     body: CreateAnnouncementRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles(RoleName.ADMIN, RoleName.MANAGER)),  # ✅ require_roles
 ):
-    from models.user import RoleName
-    if current_user.role not in [RoleName.ADMIN, RoleName.MANAGER]:
-        raise HTTPException(403, "Manager or Admin access required.")
-
     announcement = await communication_service.create_announcement(
         author_id         = str(current_user.id),
         title             = body.title,
@@ -151,11 +145,8 @@ async def create_announcement(
     summary="Get all announcements (Manager/Admin view)",
 )
 async def get_all_announcements(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles(RoleName.ADMIN, RoleName.MANAGER)),  # ✅ require_roles
 ):
-    from models.user import RoleName
-    if current_user.role not in [RoleName.ADMIN, RoleName.MANAGER]:
-        raise HTTPException(403, "Manager or Admin access required.")
     announcements = await communication_service.get_all_announcements()
     return [to_announcement_response(a) for a in announcements]
 
@@ -192,11 +183,8 @@ async def get_tenant_announcements(
 )
 async def publish_announcement(
     announcement_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles(RoleName.ADMIN, RoleName.MANAGER)),  # ✅ require_roles
 ):
-    from models.user import RoleName
-    if current_user.role not in [RoleName.ADMIN, RoleName.MANAGER]:
-        raise HTTPException(403, "Manager or Admin access required.")
     announcement = await communication_service.publish_announcement(announcement_id)
     return to_announcement_response(announcement)
 
@@ -208,11 +196,8 @@ async def publish_announcement(
 )
 async def archive_announcement(
     announcement_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles(RoleName.ADMIN, RoleName.MANAGER)),  # ✅ require_roles
 ):
-    from models.user import RoleName
-    if current_user.role not in [RoleName.ADMIN, RoleName.MANAGER]:
-        raise HTTPException(403, "Manager or Admin access required.")
     announcement = await communication_service.archive_announcement(announcement_id)
     return to_announcement_response(announcement)
 
@@ -239,9 +224,6 @@ async def mark_announcement_read(
 )
 async def delete_announcement(
     announcement_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles(RoleName.ADMIN, RoleName.MANAGER)),  # ✅ require_roles
 ):
-    from models.user import RoleName
-    if current_user.role not in [RoleName.ADMIN, RoleName.MANAGER]:
-        raise HTTPException(403, "Manager or Admin access required.")
     return await communication_service.delete_announcement(announcement_id)

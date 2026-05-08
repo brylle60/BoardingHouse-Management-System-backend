@@ -34,7 +34,7 @@ async def create_room(
 ):
     data = await room_service.create_room(
         request=request,
-        created_by=current_user["username"],
+        created_by=current_user.username,
     )
     return ApiResponse.success(
         data=data,
@@ -364,7 +364,7 @@ async def update_room(
     data = await room_service.update_room(
         room_id=room_id,
         request=request,
-        updated_by=current_user["username"],
+        updated_by=current_user.username,
     )
     return ApiResponse.success(
         data=data,
@@ -393,7 +393,7 @@ async def update_room_status(
     data = await room_service.update_room_status(
         room_id=room_id,
         status=room_status,
-        updated_by=current_user["username"],
+        updated_by=current_user.username,
     )
     return ApiResponse.success(
         data=data,
@@ -424,7 +424,7 @@ async def start_maintenance(
     data = await room_service.set_room_under_maintenance(
         room_id=room_id,
         maintenance_notes=maintenance_notes,
-        updated_by=current_user["username"],
+        updated_by=current_user.username,
     )
     return ApiResponse.success(
         data=data,
@@ -453,7 +453,7 @@ async def complete_maintenance(
 ):
     data = await room_service.complete_room_maintenance(
         room_id=room_id,
-        updated_by=current_user["username"],
+        updated_by=current_user.username,
     )
     return ApiResponse.success(
         data=data,
@@ -482,7 +482,7 @@ async def add_room_image(
     data = await room_service.add_room_image(
         room_id=room_id,
         image_url=image_url,
-        updated_by=current_user["username"],
+        updated_by=current_user.username,
     )
     return ApiResponse.success(
         data=data,
@@ -510,7 +510,7 @@ async def remove_room_image(
     data = await room_service.remove_room_image(
         room_id=room_id,
         image_url=image_url,
-        updated_by=current_user["username"],
+        updated_by=current_user.username,
     )
     return ApiResponse.success(
         data=data,

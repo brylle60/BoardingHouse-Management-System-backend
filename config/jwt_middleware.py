@@ -1,12 +1,13 @@
-from fastapi import Request, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import Request, HTTPException, status, Depends
+from fastapi.security import HTTPBearer
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
-from fastapi import Depends, HTTPException, status
 from typing import Callable
 
 from config.jwt_config import JwtConfig, JwtSettings
 from config.security_config import PUBLIC_ROUTES
+from repository.user_repository import find_by_username
+from models.user import User, RoleName
 
 
 # Reusable HTTP Bearer extractor
@@ -16,16 +17,6 @@ bearer_scheme = HTTPBearer(auto_error=False)
 _jwt_settings = JwtSettings()
 jwt_config = JwtConfig(_jwt_settings)
 
-def require_roles(*roles):
-    def role_checker(user=Depends(get_current_user)):
-        if user.role not in roles:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not enough permissions"
-            )
-        return user
-    return role_checker
-
 class JwtAuthMiddleware(BaseHTTPMiddleware):
     """
     Allows PUBLIC_ROUTES through without a token.
@@ -33,11 +24,17 @@ class JwtAuthMiddleware(BaseHTTPMiddleware):
     """
 
     async def dispatch(self, request: Request, call_next):
-        path = request.url.path
+        raw_path = request.url.path
+        path = raw_path.rstrip("/") or "/"
+
+        # Always allow CORS preflight through.
+        if request.method == "OPTIONS":
+            return await call_next(request)
 
         # Permit public routes
+        normalized_public_routes = {p.rstrip("/") or "/" for p in PUBLIC_ROUTES}
         if (
-            path in PUBLIC_ROUTES
+            path in normalized_public_routes
             or path.startswith("/api/auth/google")
             or any(path.startswith(p) for p in ["/css/", "/js/"])
         ):
@@ -82,16 +79,21 @@ class JwtAuthMiddleware(BaseHTTPMiddleware):
 # Dependency: get current user
 # ---------------------------------------------------------------------------
 
-def get_current_user(request: Request) -> dict:
+async def get_current_user(request: Request) -> User:
     if not getattr(request.state, "authenticated", False):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
         )
-    return {
-        "username": request.state.username,
-        "roles":    request.state.roles,
-    }
+
+    user = await find_by_username(request.state.username)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authenticated user no longer exists.",
+        )
+
+    return user
 
 
 # ---------------------------------------------------------------------------
@@ -111,24 +113,17 @@ def require_roles(*allowed_roles) -> Callable:
     # Normalize to string values so both enums and plain strings work
     allowed = {r.value if hasattr(r, "value") else str(r) for r in allowed_roles}
 
-    def dependency(request: Request) -> dict:
-        if not getattr(request.state, "authenticated", False):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Not authenticated",
-            )
-
-        user_roles = set(request.state.roles or [])
-
-        if not user_roles.intersection(allowed):
+    async def dependency(current_user: User = Depends(get_current_user)) -> User:
+        current_role = (
+            current_user.role.value
+            if isinstance(current_user.role, RoleName)
+            else str(current_user.role)
+        )
+        if current_role not in allowed:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Access denied. Required roles: {allowed}",
             )
-
-        return {
-            "username": request.state.username,
-            "roles":    request.state.roles,
-        }
+        return current_user
 
     return dependency

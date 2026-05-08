@@ -35,11 +35,6 @@ router = APIRouter(
     response_model=ApiResponse[LeaseResponse],
     status_code=status.HTTP_201_CREATED,
     summary="Create a new lease",
-    description="Creates a new lease agreement between a tenant and a room. "
-                "Automatically occupies the room and activates the tenant. "
-                "Lease is set to PENDING if start_date is in the future, "
-                "ACTIVE if start_date is today or in the past. "
-                "Accessible by ADMIN and MANAGER only.",
 )
 async def create_lease(
     request: LeaseCreateRequest = Body(...),
@@ -47,7 +42,7 @@ async def create_lease(
 ):
     data = await lease_service.create_lease(
         request=request,
-        created_by=current_user["username"],
+        created_by=current_user.username,        # ✅ fixed
     )
     return ApiResponse.success(
         data=data,
@@ -65,16 +60,11 @@ async def create_lease(
     response_model=ApiResponse[list[LeaseResponse]],
     status_code=status.HTTP_200_OK,
     summary="Get all leases",
-    description="Returns a paginated list of all leases across all tenants and rooms. "
-                "Includes all statuses: ACTIVE, PENDING, EXPIRED, TERMINATED, RENEWED. "
-                "Accessible by ADMIN, and MANAGER.",
 )
 async def get_all_leases(
     skip:  int = Query(default=0,  ge=0),
     limit: int = Query(default=20, ge=1, le=100),
-    current_user=Depends(require_roles(
-        RoleName.ADMIN, RoleName.MANAGER
-    )),
+    current_user=Depends(require_roles(RoleName.ADMIN, RoleName.MANAGER)),
 ):
     data = await lease_service.get_all_leases(skip=skip, limit=limit)
     return ApiResponse.success(
@@ -92,9 +82,6 @@ async def get_all_leases(
     response_model=ApiResponse[dict],
     status_code=status.HTTP_200_OK,
     summary="Get lease statistics",
-    description="Returns lease counts grouped by status plus expiring-soon count. "
-                "Used by the dashboard stats grid. "
-                "Accessible by ADMIN and MANAGER.",
 )
 async def get_lease_stats(
     current_user=Depends(require_roles(RoleName.ADMIN, RoleName.MANAGER)),
@@ -115,9 +102,6 @@ async def get_lease_stats(
     response_model=ApiResponse[list[LeaseResponse]],
     status_code=status.HTTP_200_OK,
     summary="Get expiring leases",
-    description="Returns active leases expiring within the given number of days. "
-                "Default is 30 days. Used by the dashboard expiring-soon alert. "
-                "Accessible by ADMIN and MANAGER.",
 )
 async def get_expiring_leases(
     days_ahead: int = Query(default=30, ge=1, le=365),
@@ -143,17 +127,12 @@ async def get_expiring_leases(
     response_model=ApiResponse[list[LeaseResponse]],
     status_code=status.HTTP_200_OK,
     summary="Get leases by status",
-    description="Returns leases filtered by status: "
-                "ACTIVE, PENDING, EXPIRED, TERMINATED, or RENEWED. "
-                "Accessible by ADMIN, and MANAGER.",
 )
 async def get_leases_by_status(
     lease_status: LeaseStatus = Path(..., description="Lease status filter"),
     skip:  int = Query(default=0,  ge=0),
     limit: int = Query(default=20, ge=1, le=100),
-    current_user=Depends(require_roles(
-        RoleName.ADMIN, RoleName.MANAGER
-    )),
+    current_user=Depends(require_roles(RoleName.ADMIN, RoleName.MANAGER)),
 ):
     data = await lease_service.get_leases_by_status(
         status=lease_status, skip=skip, limit=limit
@@ -173,18 +152,12 @@ async def get_leases_by_status(
     response_model=ApiResponse[list[LeaseResponse]],
     status_code=status.HTTP_200_OK,
     summary="Get all leases for a tenant",
-    description="Returns the full lease history for a specific tenant. "
-                "Includes all statuses. "
-                "Accessible by ADMIN,and MANAGE. "
-                "TENANT role can only access their own leases via /me.",
 )
 async def get_leases_by_tenant(
     tenant_id: str = Path(..., description="Tenant MongoDB ObjectId string"),
     skip:  int = Query(default=0,  ge=0),
     limit: int = Query(default=20, ge=1, le=100),
-    current_user=Depends(require_roles(
-        RoleName.ADMIN, RoleName.MANAGER
-    )),
+    current_user=Depends(require_roles(RoleName.ADMIN, RoleName.MANAGER)),
 ):
     data = await lease_service.get_leases_by_tenant(
         tenant_id=tenant_id, skip=skip, limit=limit
@@ -204,15 +177,10 @@ async def get_leases_by_tenant(
     response_model=ApiResponse[LeaseResponse],
     status_code=status.HTTP_200_OK,
     summary="Get active lease for a tenant",
-    description="Returns the currently active lease for a specific tenant. "
-                "Raises 404 if no active lease exists. "
-                "Accessible by ADMIN, and MANAGER.",
 )
 async def get_active_lease_by_tenant(
     tenant_id: str = Path(..., description="Tenant MongoDB ObjectId string"),
-    current_user=Depends(require_roles(
-        RoleName.ADMIN, RoleName.MANAGER
-    )),
+    current_user=Depends(require_roles(RoleName.ADMIN, RoleName.MANAGER)),
 ):
     data = await lease_service.get_active_lease_by_tenant(tenant_id)
     return ApiResponse.success(
@@ -230,16 +198,12 @@ async def get_active_lease_by_tenant(
     response_model=ApiResponse[list[LeaseResponse]],
     status_code=status.HTTP_200_OK,
     summary="Get all leases for a room",
-    description="Returns the full lease history for a specific room. "
-                "Accessible by ADMIN, and MANAGER.",
 )
 async def get_leases_by_room(
     room_id: str = Path(..., description="Room MongoDB ObjectId string"),
     skip:  int = Query(default=0,  ge=0),
     limit: int = Query(default=20, ge=1, le=100),
-    current_user=Depends(require_roles(
-        RoleName.ADMIN, RoleName.MANAGER
-    )),
+    current_user=Depends(require_roles(RoleName.ADMIN, RoleName.MANAGER)),
 ):
     data = await lease_service.get_leases_by_room(
         room_id=room_id, skip=skip, limit=limit
@@ -259,15 +223,10 @@ async def get_leases_by_room(
     response_model=ApiResponse[LeaseResponse],
     status_code=status.HTTP_200_OK,
     summary="Get active lease for a room",
-    description="Returns the currently active lease for a specific room. "
-                "Raises 404 if no active lease exists. "
-                "Accessible by ADMIN, and MANAGER.",
 )
 async def get_active_lease_by_room(
     room_id: str = Path(..., description="Room MongoDB ObjectId string"),
-    current_user=Depends(require_roles(
-        RoleName.ADMIN, RoleName.MANAGER
-    )),
+    current_user=Depends(require_roles(RoleName.ADMIN, RoleName.MANAGER)),
 ):
     data = await lease_service.get_active_lease_by_room(room_id)
     return ApiResponse.success(
@@ -285,14 +244,12 @@ async def get_active_lease_by_room(
     response_model=ApiResponse[LeaseResponse],
     status_code=status.HTTP_200_OK,
     summary="Get my active lease",
-    description="Returns the currently active lease for the logged-in tenant. "
-                "Accessible by TENANT role only.",
 )
 async def get_my_lease(
     current_user=Depends(require_roles(RoleName.TENANT)),
 ):
     data = await lease_service.get_active_lease_by_tenant(
-        tenant_id=current_user["sub"]
+        tenant_id=str(current_user.id)           # ✅ fixed
     )
     return ApiResponse.success(
         data=data,
@@ -309,14 +266,10 @@ async def get_my_lease(
     response_model=ApiResponse[LeaseResponse],
     status_code=status.HTTP_200_OK,
     summary="Get lease by ID",
-    description="Returns a single lease by its MongoDB ObjectId. "
-                "Accessible by ADMIN, and MANAGER.",
 )
 async def get_lease_by_id(
     lease_id: PydanticObjectId = Path(..., description="Lease MongoDB ObjectId"),
-    current_user=Depends(require_roles(
-        RoleName.ADMIN, RoleName.MANAGER
-    )),
+    current_user=Depends(require_roles(RoleName.ADMIN, RoleName.MANAGER)),
 ):
     data = await lease_service.get_lease_by_id(lease_id)
     return ApiResponse.success(
@@ -334,20 +287,16 @@ async def get_lease_by_id(
     response_model=ApiResponse[LeaseResponse],
     status_code=status.HTTP_200_OK,
     summary="Update lease details",
-    description="Partially updates editable lease fields. "
-                "Cannot change tenant_id, room_id, start_date, monthly_rate, or status here. "
-                "Use /renew for rate changes. "
-                "Accessible by ADMIN and MANAGER.",
 )
 async def update_lease(
-    lease_id: PydanticObjectId    = Path(..., description="Lease MongoDB ObjectId"),
-    request:  LeaseUpdateRequest  = Body(...),
+    lease_id: PydanticObjectId   = Path(..., description="Lease MongoDB ObjectId"),
+    request:  LeaseUpdateRequest = Body(...),
     current_user=Depends(require_roles(RoleName.ADMIN, RoleName.MANAGER)),
 ):
     data = await lease_service.update_lease(
         lease_id=lease_id,
         request=request,
-        updated_by=current_user["username"],
+        updated_by=current_user.username,        # ✅ fixed
     )
     return ApiResponse.success(
         data=data,
@@ -364,9 +313,6 @@ async def update_lease(
     response_model=ApiResponse[LeaseResponse],
     status_code=status.HTTP_200_OK,
     summary="Activate a pending lease",
-    description="Manually activates a PENDING lease before its start_date. "
-                "Lease must currently be in PENDING status. "
-                "Accessible by ADMIN and MANAGER.",
 )
 async def activate_lease(
     lease_id: PydanticObjectId = Path(..., description="Lease MongoDB ObjectId"),
@@ -374,7 +320,7 @@ async def activate_lease(
 ):
     data = await lease_service.activate_lease(
         lease_id=lease_id,
-        updated_by=current_user["username"],
+        updated_by=current_user.username,        # ✅ fixed
     )
     return ApiResponse.success(
         data=data,
@@ -391,10 +337,6 @@ async def activate_lease(
     response_model=ApiResponse[LeaseResponse],
     status_code=status.HTTP_200_OK,
     summary="Renew a lease",
-    description="Extends the lease end date and optionally adjusts the monthly rate. "
-                "Creates an audit entry in renewal_history. "
-                "Lease must be ACTIVE. "
-                "Accessible by ADMIN and MANAGER.",
 )
 async def renew_lease(
     lease_id: PydanticObjectId  = Path(..., description="Lease MongoDB ObjectId"),
@@ -404,7 +346,7 @@ async def renew_lease(
     data = await lease_service.renew_lease(
         lease_id=lease_id,
         request=request,
-        updated_by=current_user["username"],
+        updated_by=current_user.username,        # ✅ fixed
     )
     return ApiResponse.success(
         data=data,
@@ -421,10 +363,6 @@ async def renew_lease(
     response_model=ApiResponse[LeaseResponse],
     status_code=status.HTTP_200_OK,
     summary="Terminate a lease",
-    description="Terminates an active or pending lease early. "
-                "Automatically vacates the room and unassigns the tenant. "
-                "Records termination reason, move-out date, and deposit details. "
-                "Accessible by ADMIN and MANAGER.",
 )
 async def terminate_lease(
     lease_id: PydanticObjectId      = Path(..., description="Lease MongoDB ObjectId"),
@@ -434,7 +372,7 @@ async def terminate_lease(
     data = await lease_service.terminate_lease(
         lease_id=lease_id,
         request=request,
-        updated_by=current_user["username"],
+        updated_by=current_user.username,        # ✅ fixed
     )
     return ApiResponse.success(
         data=data,
@@ -451,20 +389,16 @@ async def terminate_lease(
     response_model=ApiResponse[LeaseResponse],
     status_code=status.HTTP_200_OK,
     summary="Return security deposit",
-    description="Records that the security deposit has been returned to the tenant. "
-                "Lease must be TERMINATED or EXPIRED. "
-                "Deposit cannot be returned more than once. "
-                "Accessible by ADMIN and MANAGER.",
 )
 async def return_deposit(
-    lease_id: PydanticObjectId    = Path(..., description="Lease MongoDB ObjectId"),
+    lease_id: PydanticObjectId     = Path(..., description="Lease MongoDB ObjectId"),
     request:  DepositReturnRequest = Body(...),
     current_user=Depends(require_roles(RoleName.ADMIN, RoleName.MANAGER)),
 ):
     data = await lease_service.return_deposit(
         lease_id=lease_id,
         deductions=request.deductions,
-        updated_by=current_user["username"],
+        updated_by=current_user.username,        # ✅ fixed
     )
     return ApiResponse.success(
         data=data,
@@ -481,11 +415,6 @@ async def return_deposit(
     response_model=ApiResponse[dict],
     status_code=status.HTTP_200_OK,
     summary="Delete lease",
-    description="Permanently deletes a lease record. "
-                "Lease must NOT be ACTIVE or PENDING. "
-                "Use terminate_lease() to end an active lease first. "
-                "Prefer keeping records for audit history. "
-                "Accessible by ADMIN only.",
 )
 async def delete_lease(
     lease_id: PydanticObjectId = Path(..., description="Lease MongoDB ObjectId"),

@@ -7,24 +7,27 @@
 # Web Server & Framework
 fastapi
 uvicorn[standard]
-
+ 
 # Database
 beanie
 pymongo
 motor
 pydantic-settings
 python-dotenv
-
+ 
 # Security & Authentication
 python-jose[cryptography]
 bcrypt
 pyjwt
 authlib==1.3.1
 httpx
-
+ 
 # Validation & Email
 pydantic[email]
 fastapi-mail
+ 
+# Scheduler
+apscheduler
 
 # To install all dependencies, run:
 # pip install -r requirements.txt
@@ -32,18 +35,5 @@ fastapi-mail
 # Update pip to the latest version:
 # python.exe -m pip install --upgrade pip
 
-# 6. Install Validation & Email
-pip install "pydantic[email]" fastapi-mail
-#7 Apscheduler 
-pip install apscheduler
-
-#pip install --upgrade pymongo motor beanie
-#pip install -U motor
-#python -m pip install --upgrade pi
-
-#ModuleNotFoundError: No module named 'crypt'
-
-# Run the backend:
-# uvicorn main:app --reload --port 8080
 # Run the backend:
 # uvicorn main:app --reload --port 8080

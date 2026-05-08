@@ -28,7 +28,7 @@ password_encoder = PasswordEncoder()
 
 CORS_CONFIG = {
     "allow_origins": ["http://localhost:5173"],
-    "allow_methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    "allow_methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],  # ✅ PATCH added
     "allow_headers": ["*"],
     "allow_credentials": True,
 }
@@ -56,24 +56,18 @@ PUBLIC_ROUTES = {
     "/api/auth/verify-otp",
     "/api/auth/reset-password",
 
-    # ── OAuth endpoints (future) ──────────────────────────────────────────
+    # ── OAuth endpoints ───────────────────────────────────────────────────
     "/api/auth/google",
     "/api/auth/google/callback",
- 
+
     # ── Health check ──────────────────────────────────────────────────────
     "/health",
- 
-    # ── FastAPI auto-generated docs ───────────────────────────────────────
-    # Remove "/docs", "/redoc", "/openapi.json" in production
+
+    # ── FastAPI auto-generated docs (remove in production) ───────────────
     "/docs",
     "/redoc",
     "/openapi.json",
     "/favicon.ico",
 
     "/room",
-}
-
-PROTECTED_ROUTES = {
-    "/home",
-    "/admin",
 }
