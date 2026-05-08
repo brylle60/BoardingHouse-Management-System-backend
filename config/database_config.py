@@ -14,7 +14,16 @@ from models.notification import Notification
 from models.message import Message, Announcement
 from models.manager_role_request import ManagerRoleRequest
 from models.booking_request import BookingRequest
+from models.system_setting import SystemSetting
 
+document_models=[
+    User,
+    Tenant,
+    Room,
+    Lease,
+    Notification,
+    SystemSetting,   # ← add this
+]
 class DataSettings(BaseSettings):
     # Pydantic will automatically look for MONGODB_URL and MONGODB_NAME in your .env
     mongodb_url: str = Field(..., alias="DATABASE_URL") 
