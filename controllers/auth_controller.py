@@ -38,6 +38,33 @@ async def logout(request: Request):
     return {"message": "Logged out successfully"}
 
 
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+@router.post("/refresh")
+async def refresh_token(body: RefreshRequest):
+    """Issue a new access token using a valid refresh token."""
+    try:
+        username = jwt_config.get_username_from_token(body.refresh_token)
+        if not username:
+            raise ValueError("Empty subject")
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid or expired refresh token.")
+
+    user = await find_by_username(username)
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found.")
+
+    role_value   = user.role.value if hasattr(user.role, "value") else str(user.role)
+    access_token = jwt_config.generate_token(username, extra_claims={"roles": [role_value]})
+
+    return {
+        "access_token": access_token,
+        "token_type":   "Bearer",
+        "role":         role_value,
+    }
+
+
 # ── Standard Register ────────────────────────────────────────
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)

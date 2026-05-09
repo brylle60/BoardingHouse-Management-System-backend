@@ -32,6 +32,16 @@ class RoomAmenityResponse(BaseModel):
     is_working:  bool
 
 
+class ManagerInfoResponse(BaseModel):
+    """
+    Lightweight manager details embedded in public room listings.
+    """
+    username:  str
+    full_name: str
+    email:     str
+    phone:     Optional[str] = None
+
+
 # ================================================================
 # MAIN ROOM RESPONSE
 # ================================================================
@@ -84,10 +94,13 @@ class RoomResponse(BaseModel):
     created_by: Optional[str] = None
     updated_by: Optional[str] = None
 
+    # ── Manager Info (public listing only) ────────────────────
+    manager_info: Optional[ManagerInfoResponse] = None
+
     # ── Factory Method ────────────────────────────────────────
 
     @classmethod
-    def from_room(cls, room: Room) -> "RoomResponse":
+    def from_room(cls, room: Room, manager_info: Optional[ManagerInfoResponse] = None) -> "RoomResponse":
         """
         Constructs a RoomResponse from a Room Beanie document.
         Called by room_service.py — never construct this manually.
@@ -157,6 +170,9 @@ class RoomResponse(BaseModel):
             updated_at=room.updated_at,
             created_by=room.created_by,
             updated_by=room.updated_by,
+
+            # Manager
+            manager_info=manager_info,
         )
 
     model_config = {
