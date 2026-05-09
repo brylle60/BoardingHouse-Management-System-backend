@@ -9,8 +9,9 @@ from typing import Optional
 
 from models.room import Room, RoomStatus, RoomType, RoomAmenity, RoomDimension
 from repository import room_repository
+from repository.user_repository import find_by_username
 from dto.request.room_request import RoomCreateRequest, RoomUpdateRequest
-from dto.response.room_response import RoomResponse
+from dto.response.room_response import RoomResponse, ManagerInfoResponse
 from exception.resource_not_found_exception import ResourceNotFoundException
 from exception.bad_request_exception import BadRequestException
 from exception.duplicate_resource_exception import DuplicateResourceException
@@ -196,11 +197,24 @@ async def get_vacant_rooms(
     limit: int = 20,
 ) -> list[RoomResponse]:
     """
-    Returns all vacant rooms.
-    Used by the room selection UI when registering a new tenant.
+    Returns all vacant rooms with embedded manager info.
+    Used by the public room listing and room selection UI.
     """
     rooms = await room_repository.get_vacant_rooms(skip=skip, limit=limit)
-    return [RoomResponse.from_room(r) for r in rooms]
+    result = []
+    for room in rooms:
+        manager_info = None
+        if room.created_by:
+            user = await find_by_username(room.created_by)
+            if user:
+                manager_info = ManagerInfoResponse(
+                    username=user.username,
+                    full_name=user.full_name,
+                    email=user.email,
+                    phone=user.phone,
+                )
+        result.append(RoomResponse.from_room(room, manager_info))
+    return result
 
 
 async def get_rooms_under_maintenance(
