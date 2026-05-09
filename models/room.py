@@ -88,6 +88,11 @@ class Room(Document):
     room_type:    RoomType         = RoomType.SINGLE
     description:  Optional[str]   = None   # short description for listings
 
+    # ── Property Info ─────────────────────────────────────────
+    property_name: Optional[str] = None
+    location:      Optional[str] = None   # City / Area
+    address:       Optional[str] = None   # Full street address
+
     # ── Capacity ──────────────────────────────────────────────
     max_occupants:     int   = Field(default=1, ge=1)
     current_occupants: int   = Field(default=0, ge=0)

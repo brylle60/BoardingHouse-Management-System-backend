@@ -13,7 +13,9 @@ from datetime import datetime, date
 
 from models.user import User, RoleName
 from models.booking_request import BookingRequest, BookingStatus
-from models.room import Room
+from models.room import Room, RoomStatus
+from models.tenant import Tenant, TenantStatus
+from models.lease import Lease, LeaseStatus, PaymentFrequency
 from config.jwt_middleware import get_current_user, require_roles
 
 router = APIRouter(prefix="/api/bookings", tags=["Booking Requests"])
@@ -255,11 +257,51 @@ async def review_booking(
     await req.save()
 
     if body.status == BookingStatus.APPROVED:
-        # Optionally reserve the room so it can't be double-booked
         room = await Room.get(PydanticObjectId(req.room_id))
         if room and room.is_vacant:
-            from models.room import RoomStatus
-            room.status = RoomStatus.RESERVED
+            # ── 1. Create Tenant profile from booking data (if not exists) ──
+            existing_tenant = await Tenant.find_one({"user_id": req.user_id})
+            if existing_tenant:
+                tenant = existing_tenant
+            else:
+                name_parts = req.full_name.strip().split()
+                first_name = name_parts[0] if name_parts else req.full_name
+                last_name = name_parts[-1] if len(name_parts) > 1 else ""
+
+                tenant = Tenant(
+                    user_id       = req.user_id,
+                    first_name    = first_name,
+                    last_name     = last_name,
+                    phone         = req.phone,
+                    email         = req.email,
+                    room_id       = req.room_id,
+                    status        = TenantStatus.ACTIVE,
+                    move_in_date  = req.desired_move_in_date or datetime.utcnow(),
+                    created_by    = str(current_user.id),
+                )
+                await tenant.insert()
+
+            # ── 2. Create Lease ──
+            today = date.today()
+            end_dt = date(today.year + 1, today.month, min(today.day, 28))
+            lease = Lease(
+                tenant_id        = str(tenant.id),
+                room_id          = req.room_id,
+                start_date       = today,
+                end_date         = end_dt,
+                status           = LeaseStatus.ACTIVE,
+                monthly_rate     = req.monthly_rent,
+                payment_frequency= PaymentFrequency.MONTHLY,
+                deposit_amount   = req.monthly_rent * 2,
+                advance_amount   = req.monthly_rent,
+                due_day          = 1,
+                created_by       = str(current_user.id),
+            )
+            await lease.insert()
+
+            # ── 3. Update room ──
+            room.status = RoomStatus.OCCUPIED
+            room.current_occupants = min(room.current_occupants + 1, room.max_occupants)
             room.updated_at = datetime.utcnow()
             await room.save()
 
