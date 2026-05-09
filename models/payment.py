@@ -1,5 +1,3 @@
-
-
 from beanie import Document, PydanticObjectId
 from pydantic import Field
 from typing import Optional
@@ -13,6 +11,7 @@ class PaymentMethod(str, Enum):
     GCASH         = "GCASH"
     PAYMAYA       = "PAYMAYA"
     CARD          = "CARD"
+    PAYPAL        = "PAYPAL"
     OTHER         = "OTHER"
 
 
@@ -52,7 +51,8 @@ class Payment(Document):
     # ── Period this payment covers ────────────────────────────────────────
     period_start:   Optional[datetime] = None    # e.g. April 1, 2026
     period_end:     Optional[datetime] = None    # e.g. April 30, 2026
-
+    # payPal
+    paypal_order_id: Optional[str] = None
     # ── Payment details ───────────────────────────────────────────────────
     method:         PaymentMethod   = PaymentMethod.CASH
     status:         PaymentStatus   = PaymentStatus.PENDING
