@@ -3,8 +3,9 @@
 # ResidEase – Boarding House Management System
 # ============================================================
 
-from fastapi import APIRouter, Depends, Query, Path, Body, status
+from fastapi import APIRouter, Depends, Query, Path, Body, status, HTTPException
 from beanie import PydanticObjectId
+from repository import tenant_repository
 
 from services import lease_service
 from models.lease import LeaseStatus
@@ -248,8 +249,13 @@ async def get_active_lease_by_room(
 async def get_my_lease(
     current_user=Depends(require_roles(RoleName.TENANT)),
 ):
+    tenant = await tenant_repository.get_tenant_by_user_id(
+        PydanticObjectId(str(current_user.id))
+    )
+    if not tenant:
+        raise HTTPException(status_code=404, detail="No tenant profile found.")
     data = await lease_service.get_active_lease_by_tenant(
-        tenant_id=str(current_user.id)           # ✅ fixed
+        tenant_id=str(tenant.id)
     )
     return ApiResponse.success(
         data=data,

@@ -9,6 +9,7 @@ from models.message import MessageStatus, MessageDirection, AnnouncementStatus, 
 class MessageResponse(BaseModel):
     id:          str
     sender_id:   str
+    sender_name: Optional[str] = None
     receiver_id: str
     tenant_id:   str
     subject:     Optional[str]
@@ -48,10 +49,11 @@ class UnreadCountResponse(BaseModel):
 
 # ── Mapper helpers ────────────────────────────────────────────────────────────
 
-def to_message_response(msg) -> MessageResponse:
+def to_message_response(msg, sender_name: str | None = None) -> MessageResponse:
     return MessageResponse(
         id          = str(msg.id),
         sender_id   = str(msg.sender_id),
+        sender_name = sender_name,
         receiver_id = str(msg.receiver_id),
         tenant_id   = str(msg.tenant_id),
         subject     = msg.subject,

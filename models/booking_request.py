@@ -37,6 +37,21 @@ class BookingRequest(Document):
     # Desired move-in
     desired_move_in_date: Optional[date] = None
 
+    # Personal details (used to populate Tenant profile on approval)
+    last_name:        Optional[str]   = None
+    date_of_birth:    Optional[date]  = None
+    gender:           Optional[str]   = None
+    civil_status:     Optional[str]   = None
+    nationality:      Optional[str]   = "Filipino"
+    occupation:       Optional[str]   = None
+    employer:         Optional[str]   = None
+    monthly_income:   Optional[float] = None
+
+    # Emergency contact
+    emergency_contact_name:         Optional[str] = None
+    emergency_contact_phone:        Optional[str] = None
+    emergency_contact_relationship: Optional[str] = None
+
     # Additional info
     message:     Optional[str] = Field(default=None, max_length=1000)
     id_document: Optional[str] = None   # URL / file path of uploaded ID

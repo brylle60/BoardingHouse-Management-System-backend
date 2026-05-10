@@ -8,7 +8,7 @@ from models.tenant import (
     CivilStatus,
     IDType,
     EmergencyRelation,
-    TenantStatus,   # make sure this exists in your model
+    TenantStatus,
 )
 
 
@@ -21,7 +21,7 @@ class GovernmentIDResponse(BaseModel):
     id_number:   str
     issued_date: Optional[date] = None
     expiry_date: Optional[date] = None
-    verified:    bool = False      
+    verified:    bool = False
 
 
 class EmergencyContactResponse(BaseModel):
@@ -42,6 +42,28 @@ class AddressResponse(BaseModel):
 
 
 # ================================================================
+# HELPERS — safely convert embedded Beanie docs → Response DTOs
+# ================================================================
+
+def _to_emergency_contact(ec) -> Optional[EmergencyContactResponse]:
+    if ec is None:
+        return None
+    return EmergencyContactResponse(**ec.model_dump())
+
+
+def _to_home_address(ha) -> Optional[AddressResponse]:
+    if ha is None:
+        return None
+    return AddressResponse(**ha.model_dump())
+
+
+def _to_government_id(gid) -> Optional[GovernmentIDResponse]:
+    if gid is None:
+        return None
+    return GovernmentIDResponse(**gid.model_dump())
+
+
+# ================================================================
 # MAIN TENANT RESPONSE
 # ================================================================
 
@@ -51,20 +73,17 @@ class TenantResponse(BaseModel):
       GET  /api/tenants/{tenant_id}
       POST /api/tenants
       PATCH /api/tenants/{tenant_id}
-
-    Never expose sensitive fields here — no passwords, no raw IDs
-    unless needed by frontend.
     """
 
     # ── Identity ──────────────────────────────────────────────
-    id:      str                    # MongoDB _id as string
-    user_id: str                    # linked User account
+    id:      str
+    user_id: str
 
     # ── Personal Info ─────────────────────────────────────────
     first_name:    str
     last_name:     str
     middle_name:   Optional[str]         = None
-    full_name:     str                   # computed: "Juan S. dela Cruz"
+    full_name:     str
     date_of_birth: Optional[date]        = None
     gender:        Optional[Gender]      = None
     civil_status:  Optional[CivilStatus] = None
@@ -80,12 +99,12 @@ class TenantResponse(BaseModel):
     monthly_income: Optional[float] = None
 
     # ── Room assignment ───────────────────────────────────────
-    room_id:      Optional[str]      = None   # null if not yet assigned
+    room_id:      Optional[str]      = None
     move_in_date: Optional[datetime] = None
     status:       TenantStatus
 
     # ── Deposit ───────────────────────────────────────────────
-    deposit_amount: Optional[float]   = None
+    deposit_amount: Optional[float]    = None
     deposit_date:   Optional[datetime] = None
     deposit_paid:   bool = False
 
@@ -100,6 +119,42 @@ class TenantResponse(BaseModel):
     # ── Audit ─────────────────────────────────────────────────
     created_at: datetime
     updated_at: datetime
+
+    @classmethod
+    def from_tenant(cls, tenant) -> "TenantResponse":
+        """Convert a Beanie Tenant document → TenantResponse."""
+        middle    = f" {tenant.middle_name[0]}." if tenant.middle_name else ""
+        full_name = f"{tenant.first_name}{middle} {tenant.last_name}"
+        return cls(
+            id             = str(tenant.id),
+            user_id        = str(tenant.user_id),
+            first_name     = tenant.first_name,
+            last_name      = tenant.last_name,
+            middle_name    = tenant.middle_name,
+            full_name      = full_name,
+            date_of_birth  = tenant.date_of_birth,
+            gender         = tenant.gender,
+            civil_status   = tenant.civil_status,
+            nationality    = tenant.nationality,
+            phone          = tenant.phone,
+            email          = tenant.email,
+            occupation     = tenant.occupation,
+            employer       = tenant.employer,
+            monthly_income = tenant.monthly_income,
+            room_id        = str(tenant.room_id) if tenant.room_id else None,
+            move_in_date   = tenant.move_in_date,
+            status         = tenant.status,
+            deposit_amount = tenant.deposit_amount,
+            deposit_date   = tenant.deposit_date,
+            deposit_paid   = tenant.deposit_paid,
+            # FIX: convert embedded Beanie docs → Response DTOs
+            home_address      = _to_home_address(tenant.home_address),
+            emergency_contact = _to_emergency_contact(tenant.emergency_contact),
+            government_id     = _to_government_id(tenant.government_id),
+            notes          = tenant.notes,
+            created_at     = tenant.created_at,
+            updated_at     = tenant.updated_at,
+        )
 
     model_config = {
         "json_schema_extra": {
@@ -160,16 +215,12 @@ class TenantResponse(BaseModel):
 # ================================================================
 
 class TenantSummaryResponse(BaseModel):
-    """
-    Lighter version for list views — GET /api/tenants
-    Only includes fields needed for the table row.
-    No sub-documents to keep the payload small.
-    """
+    """Lighter version for list views — GET /api/tenants"""
     id:           str
     full_name:    str
     phone:        str
     email:        EmailStr
-    room_id:      Optional[str]  = None
+    room_id:      Optional[str]      = None
     status:       TenantStatus
     deposit_paid: bool
     move_in_date: Optional[datetime] = None
@@ -177,9 +228,7 @@ class TenantSummaryResponse(BaseModel):
 
 
 class TenantListResponse(BaseModel):
-    """
-    Paginated list wrapper for GET /api/tenants
-    """
+    """Paginated list wrapper for GET /api/tenants"""
     total:   int
     page:    int
     limit:   int
@@ -187,58 +236,49 @@ class TenantListResponse(BaseModel):
 
 
 # ================================================================
-# HELPER — convert Tenant model → TenantResponse
+# HELPER FUNCTIONS
 # ================================================================
 
 def to_tenant_response(tenant) -> TenantResponse:
-    """
-    Maps a Beanie Tenant document to TenantResponse.
-    Call this in your service or controller after fetching from DB.
-
-    Usage:
-        tenant = await find_by_id(tenant_id)
-        return to_tenant_response(tenant)
-    """
-    middle = f" {tenant.middle_name[0]}." if tenant.middle_name else ""
+    """Maps a Beanie Tenant document to TenantResponse."""
+    middle    = f" {tenant.middle_name[0]}." if tenant.middle_name else ""
     full_name = f"{tenant.first_name}{middle} {tenant.last_name}"
 
     return TenantResponse(
-        id            = str(tenant.id),
-        user_id       = str(tenant.user_id),
-        first_name    = tenant.first_name,
-        last_name     = tenant.last_name,
-        middle_name   = tenant.middle_name,
-        full_name     = full_name,
-        date_of_birth = tenant.date_of_birth,
-        gender        = tenant.gender,
-        civil_status  = tenant.civil_status,
-        nationality   = tenant.nationality,
-        phone         = tenant.phone,
-        email         = tenant.email,
-        occupation    = tenant.occupation,
-        employer      = tenant.employer,
-        monthly_income= tenant.monthly_income,
-        room_id       = str(tenant.room_id) if tenant.room_id else None,
-        move_in_date  = tenant.move_in_date,
-        status        = tenant.status,
-        deposit_amount= tenant.deposit_amount,
-        deposit_date  = tenant.deposit_date,
-        deposit_paid  = tenant.deposit_paid,
-        home_address  = tenant.home_address,
-        emergency_contact = tenant.emergency_contact,
-        government_id = tenant.government_id,
-        notes         = tenant.notes,
-        created_at    = tenant.created_at,
-        updated_at    = tenant.updated_at,
+        id             = str(tenant.id),
+        user_id        = str(tenant.user_id),
+        first_name     = tenant.first_name,
+        last_name      = tenant.last_name,
+        middle_name    = tenant.middle_name,
+        full_name      = full_name,
+        date_of_birth  = tenant.date_of_birth,
+        gender         = tenant.gender,
+        civil_status   = tenant.civil_status,
+        nationality    = tenant.nationality,
+        phone          = tenant.phone,
+        email          = tenant.email,
+        occupation     = tenant.occupation,
+        employer       = tenant.employer,
+        monthly_income = tenant.monthly_income,
+        room_id        = str(tenant.room_id) if tenant.room_id else None,
+        move_in_date   = tenant.move_in_date,
+        status         = tenant.status,
+        deposit_amount = tenant.deposit_amount,
+        deposit_date   = tenant.deposit_date,
+        deposit_paid   = tenant.deposit_paid,
+        # FIX: convert embedded Beanie docs → Response DTOs
+        home_address      = _to_home_address(tenant.home_address),
+        emergency_contact = _to_emergency_contact(tenant.emergency_contact),
+        government_id     = _to_government_id(tenant.government_id),
+        notes          = tenant.notes,
+        created_at     = tenant.created_at,
+        updated_at     = tenant.updated_at,
     )
 
 
 def to_tenant_summary(tenant) -> TenantSummaryResponse:
-    """
-    Maps a Beanie Tenant document to TenantSummaryResponse.
-    Use this for list endpoints to keep payloads light.
-    """
-    middle = f" {tenant.middle_name[0]}." if tenant.middle_name else ""
+    """Maps a Beanie Tenant document to TenantSummaryResponse."""
+    middle    = f" {tenant.middle_name[0]}." if tenant.middle_name else ""
     full_name = f"{tenant.first_name}{middle} {tenant.last_name}"
 
     return TenantSummaryResponse(
