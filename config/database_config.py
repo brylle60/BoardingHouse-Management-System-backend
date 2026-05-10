@@ -13,7 +13,7 @@ from models.lease import Lease
 from models.notification import Notification
 from models.message import Message, Announcement
 from models.manager_role_request import ManagerRoleRequest
-from models.booking_request import BookingRequest
+from models.booking_request import BookingRequest, AcceptedBookingRequest
 from models.system_setting import SystemSetting
 
 
@@ -47,7 +47,8 @@ async def init_database():
             MaintenanceRequest,
             ManagerRoleRequest,
             BookingRequest,
-            SystemSetting,   # ← was imported but never registered
+            AcceptedBookingRequest,
+            SystemSetting,
         ]
     )
     print("Connected to MongoDB:", settings.mongodb_name)
