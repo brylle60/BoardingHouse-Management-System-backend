@@ -59,6 +59,11 @@ class RoomResponse(BaseModel):
     room_type:    RoomType
     description:  Optional[str]        = None
 
+    # ── Property Info ─────────────────────────────────────────
+    property_name: Optional[str] = None
+    location:      Optional[str] = None
+    address:       Optional[str] = None
+
     # ── Capacity ──────────────────────────────────────────────
     max_occupants:     int
     current_occupants: int
@@ -135,6 +140,11 @@ class RoomResponse(BaseModel):
             floor_level=room.floor_level,
             room_type=room.room_type,
             description=room.description,
+
+            # Property Info
+            property_name=room.property_name,
+            location=room.location,
+            address=room.address,
 
             # Capacity
             max_occupants=room.max_occupants,

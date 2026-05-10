@@ -1,11 +1,13 @@
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 import httpx
 
 # ✅ All imports at the top — no inline imports inside functions
 from models.user import User, RoleName
+from models.manager_role_request import ManagerRoleRequest
 from config.jwt_config import jwt_config
+from config.jwt_middleware import get_current_user
 from dto.request.login_request    import LoginRequest
 from dto.request.register_request import RegisterRequest
 from dto.response.auth_response   import LoginResponse
@@ -204,3 +206,22 @@ async def google_callback(code: str, request: Request):
         f"&email={user.email}"
     )
     return RedirectResponse(redirect_url)
+
+
+# ── Self Delete Account ──────────────────────────────────────
+
+@router.delete("/me", status_code=status.HTTP_200_OK)
+async def delete_own_account(
+    current_user: User = Depends(get_current_user),
+):
+    """Authenticated user can permanently delete their own account."""
+    user_id = str(current_user.id)
+    username = current_user.username
+
+    # Clean up manager role requests
+    await ManagerRoleRequest.find({"user_id": user_id}).delete_many()
+
+    # Delete the user
+    await current_user.delete()
+
+    return {"message": f"Account '{username}' has been permanently deleted."}

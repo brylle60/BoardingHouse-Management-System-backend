@@ -76,6 +76,11 @@ class RoomCreateRequest(BaseModel):
     room_type:    RoomType             = RoomType.SINGLE
     description:  Optional[str]        = Field(default=None, max_length=500)
 
+    # ── Property Info ─────────────────────────────────────────
+    property_name: Optional[str] = Field(default=None, max_length=200)
+    location:      Optional[str] = Field(default=None, max_length=200)
+    address:       Optional[str] = Field(default=None, max_length=500)
+
     # ── Capacity ──────────────────────────────────────────────
     max_occupants: int = Field(
         default=1,
@@ -195,6 +200,11 @@ class RoomUpdateRequest(BaseModel):
     floor_level:  Optional[FloorLevel] = None
     room_type:    Optional[RoomType]   = None
     description:  Optional[str]        = Field(default=None, max_length=500)
+
+    # ── Property Info ─────────────────────────────────────────
+    property_name: Optional[str] = Field(default=None, max_length=200)
+    location:      Optional[str] = Field(default=None, max_length=200)
+    address:       Optional[str] = Field(default=None, max_length=500)
 
     # ── Capacity ──────────────────────────────────────────────
     max_occupants: Optional[int] = Field(default=None, ge=1, le=20)

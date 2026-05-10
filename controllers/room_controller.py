@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query, Path, Body, status
 from beanie import PydanticObjectId
 
 from services import room_service
-from models.room import RoomStatus, RoomType
+from models.room import Room, RoomStatus, RoomType
 from dto.request.room_request import RoomCreateRequest, RoomUpdateRequest
 from dto.response.room_response import RoomResponse
 from dto.response.api_response import ApiResponse
@@ -519,6 +519,69 @@ async def remove_room_image(
 
 
 # ================================================================
+# PATCH /api/rooms/{room_id}/unassign
+# ================================================================
+
+@router.patch(
+    "/{room_id}/unassign",
+    response_model=ApiResponse[dict],
+    status_code=status.HTTP_200_OK,
+    summary="Unassign tenant from room",
+    description="Finds the tenant occupying this room, clears their room_id, "
+                "and sets the room back to VACANT. "
+                "Accessible by ADMIN and MANAGER.",
+)
+async def unassign_room(
+    room_id: PydanticObjectId = Path(..., description="Room MongoDB ObjectId"),
+    current_user=Depends(require_roles(RoleName.ADMIN, RoleName.MANAGER)),
+):
+    from models.tenant import Tenant, TenantStatus
+    from models.lease import Lease, LeaseStatus
+    from datetime import datetime
+
+    room = await Room.get(room_id)
+    if not room:
+        raise HTTPException(404, "Room not found.")
+
+    tenant = await Tenant.find_one({"room_id": str(room_id), "status": TenantStatus.ACTIVE})
+    if not tenant:
+        # No active tenant — just ensure room is vacant
+        room.status = RoomStatus.VACANT
+        room.current_occupants = 0
+        room.updated_at = datetime.utcnow()
+        await room.save()
+        return ApiResponse.success(
+            data={"message": "Room is now vacant."},
+            message="No tenant was assigned to this room. Room set to vacant.",
+        )
+
+    # Unassign tenant
+    tenant.room_id = None
+    tenant.status = TenantStatus.INACTIVE
+    tenant.move_out_date = datetime.utcnow()
+    tenant.updated_at = datetime.utcnow()
+    await tenant.save()
+
+    # Mark active lease as terminated
+    lease = await Lease.find_one({"room_id": str(room_id), "tenant_id": str(tenant.id), "status": LeaseStatus.ACTIVE})
+    if lease:
+        lease.status = LeaseStatus.TERMINATED
+        lease.updated_at = datetime.utcnow()
+        await lease.save()
+
+    # Free the room
+    room.status = RoomStatus.VACANT
+    room.current_occupants = max(0, room.current_occupants - 1)
+    room.updated_at = datetime.utcnow()
+    await room.save()
+
+    return ApiResponse.success(
+        data={"message": f"Tenant {tenant.full_name} unassigned from room {room.room_number}."},
+        message=f"Tenant {tenant.full_name} removed from room {room.room_number}. Room is now vacant.",
+    )
+
+
+# ================================================================
 # DELETE /api/rooms/{room_id}
 # ================================================================
 
@@ -530,11 +593,11 @@ async def remove_room_image(
     description="Permanently deletes a room record. "
                 "Room must not be currently occupied. "
                 "Prefer setting status to MAINTENANCE instead. "
-                "Accessible by ADMIN only.",
+                "Accessible by ADMIN and MANAGER.",
 )
 async def delete_room(
     room_id: PydanticObjectId = Path(..., description="Room MongoDB ObjectId"),
-    current_user=Depends(require_roles(RoleName.ADMIN)),
+    current_user=Depends(require_roles(RoleName.ADMIN, RoleName.MANAGER)),
 ):
     data = await room_service.delete_room(room_id)
     return ApiResponse.success(
