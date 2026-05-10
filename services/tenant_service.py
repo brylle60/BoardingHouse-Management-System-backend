@@ -1,4 +1,3 @@
-
 from beanie import PydanticObjectId
 from datetime import datetime
 from typing import Optional
@@ -12,7 +11,7 @@ from models.tenant import (
 )
 from repository import tenant_repository, room_repository, user_repository
 from dto.request.tenant_request import TenantCreateRequest, TenantUpdateRequest
-from dto.response.tenant_response import TenantResponse
+from dto.response.tenant_response import TenantResponse, to_tenant_response, to_tenant_summary
 from exception.resource_not_found_exception import ResourceNotFoundException
 from exception.bad_request_exception import BadRequestException
 from exception.duplicate_resource_exception import DuplicateResourceException
@@ -23,10 +22,6 @@ from exception.duplicate_resource_exception import DuplicateResourceException
 # ================================================================
 
 async def _assert_tenant_exists(tenant_id: PydanticObjectId) -> Tenant:
-    """
-    Fetches a tenant or raises 404.
-    Used internally to avoid repeating the None-check pattern.
-    """
     tenant = await tenant_repository.get_tenant_by_id(tenant_id)
     if not tenant:
         raise ResourceNotFoundException(f"Tenant not found: {tenant_id}")
@@ -34,28 +29,18 @@ async def _assert_tenant_exists(tenant_id: PydanticObjectId) -> Tenant:
 
 
 async def _assert_no_duplicate_email(email: str, exclude_id: Optional[PydanticObjectId] = None) -> None:
-    """
-    Raises 409 if the email is already registered to another tenant.
-    Pass exclude_id when updating so the tenant's own email is not flagged.
-    """
     existing = await tenant_repository.get_tenant_by_email(email)
     if existing and existing.id != exclude_id:
         raise DuplicateResourceException(f"Email already registered to another tenant: {email}")
 
 
 async def _assert_no_duplicate_phone(phone: str, exclude_id: Optional[PydanticObjectId] = None) -> None:
-    """
-    Raises 409 if the phone number is already registered to another tenant.
-    """
     existing = await tenant_repository.get_tenant_by_phone(phone)
     if existing and existing.id != exclude_id:
         raise DuplicateResourceException(f"Phone already registered to another tenant: {phone}")
 
 
 async def _assert_room_is_vacant(room_id: PydanticObjectId) -> None:
-    """
-    Raises 400 if the target room is already occupied by an active tenant.
-    """
     occupant = await tenant_repository.get_tenant_by_room(room_id)
     if occupant:
         raise BadRequestException(
@@ -64,28 +49,18 @@ async def _assert_room_is_vacant(room_id: PydanticObjectId) -> None:
 
 
 async def _assert_room_exists(room_id: PydanticObjectId) -> None:
-    """
-    Raises 404 if the room does not exist in the database.
-    """
     room = await room_repository.get_room_by_id(room_id)
     if not room:
         raise ResourceNotFoundException(f"Room not found: {room_id}")
 
 
 async def _assert_user_exists(user_id: PydanticObjectId) -> None:
-    """
-    Raises 404 if the linked User account does not exist.
-    """
     user = await user_repository.get_user_by_id(user_id)
     if not user:
         raise ResourceNotFoundException(f"User not found: {user_id}")
 
 
 async def _assert_no_existing_tenant_profile(user_id: PydanticObjectId) -> None:
-    """
-    Raises 400 if a tenant profile already exists for this User account.
-    One User account must map to exactly one Tenant profile.
-    """
     existing = await tenant_repository.get_tenant_by_user_id(user_id)
     if existing:
         raise BadRequestException(
@@ -97,10 +72,6 @@ def _build_tenant_from_request(
     request: TenantCreateRequest,
     created_by: str
 ) -> Tenant:
-    """
-    Constructs a Tenant document from a validated create request.
-    Does not persist — caller must call create_tenant() after.
-    """
     government_id = None
     if request.government_id:
         government_id = GovernmentID(
@@ -162,16 +133,6 @@ async def register_tenant(
     request: TenantCreateRequest,
     created_by: str
 ) -> TenantResponse:
-    """
-    Registers a new tenant profile.
-
-    Validations:
-    - Linked User must exist
-    - User must not already have a tenant profile
-    - Email and phone must be unique across all tenants
-
-  
-    """
     await _assert_user_exists(request.user_id)
     await _assert_no_existing_tenant_profile(request.user_id)
     await _assert_no_duplicate_email(request.email)
@@ -179,7 +140,7 @@ async def register_tenant(
 
     tenant = _build_tenant_from_request(request, created_by)
     created = await tenant_repository.create_tenant(tenant)
-    return TenantResponse.from_tenant(created)
+    return to_tenant_response(created)
 
 
 # ================================================================
@@ -190,31 +151,20 @@ async def get_all_tenants(
     skip: int = 0,
     limit: int = 20
 ) -> list[TenantResponse]:
-    """
-    Returns a paginated list of all tenants.
-    """
     tenants = await tenant_repository.get_all_tenants(skip=skip, limit=limit)
-    return [TenantResponse.from_tenant(t) for t in tenants]
+    return [to_tenant_response(t) for t in tenants]
 
 
 async def get_tenant_by_id(tenant_id: PydanticObjectId) -> TenantResponse:
-    """
-    Returns a single tenant by ID.
-    Raises 404 if not found.
-    """
     tenant = await _assert_tenant_exists(tenant_id)
-    return TenantResponse.from_tenant(tenant)
+    return to_tenant_response(tenant)
 
 
 async def get_tenant_by_user_id(user_id: PydanticObjectId) -> TenantResponse:
-    """
-    Returns the tenant profile linked to a User account.
-    Raises 404 if no tenant profile exists for this user.
-    """
     tenant = await tenant_repository.get_tenant_by_user_id(user_id)
     if not tenant:
         raise ResourceNotFoundException(f"No tenant profile found for user: {user_id}")
-    return TenantResponse.from_tenant(tenant)
+    return to_tenant_response(tenant)
 
 
 async def get_tenants_by_status(
@@ -222,41 +172,30 @@ async def get_tenants_by_status(
     skip: int = 0,
     limit: int = 20
 ) -> list[TenantResponse]:
-    """
-    Returns tenants filtered by status (ACTIVE, PENDING, MOVED_OUT, INACTIVE).
-    """
     tenants = await tenant_repository.get_tenants_by_status(
         status=status, skip=skip, limit=limit
     )
-    return [TenantResponse.from_tenant(t) for t in tenants]
+    return [to_tenant_response(t) for t in tenants]
 
 
 async def get_tenants_with_outstanding_balance(
     skip: int = 0,
     limit: int = 20
 ) -> list[TenantResponse]:
-    """
-    Returns tenants who have unpaid balances.
-    Used by BillingService for payment reminder scheduling.
-    """
     tenants = await tenant_repository.get_tenants_with_outstanding_balance(
         skip=skip, limit=limit
     )
-    return [TenantResponse.from_tenant(t) for t in tenants]
+    return [to_tenant_response(t) for t in tenants]
 
 
 async def get_unverified_tenants(
     skip: int = 0,
     limit: int = 20
 ) -> list[TenantResponse]:
-    """
-    Returns tenants with unverified government IDs.
-    Used by admin dashboard for the ID review queue.
-    """
     tenants = await tenant_repository.get_unverified_tenants(
         skip=skip, limit=limit
     )
-    return [TenantResponse.from_tenant(t) for t in tenants]
+    return [to_tenant_response(t) for t in tenants]
 
 
 async def search_tenants(
@@ -264,29 +203,21 @@ async def search_tenants(
     skip: int = 0,
     limit: int = 20
 ) -> list[TenantResponse]:
-    """
-    Searches tenants by name, email, or phone.
-    Raises 400 if the search query is empty.
-    """
     if not query or not query.strip():
         raise BadRequestException("Search query must not be empty.")
 
     tenants = await tenant_repository.search_tenants(
         query=query.strip(), skip=skip, limit=limit
     )
-    return [TenantResponse.from_tenant(t) for t in tenants]
+    return [to_tenant_response(t) for t in tenants]
 
 
 async def get_tenant_stats() -> dict:
-    """
-    Returns a summary of tenant counts grouped by status.
-    Used by DashboardService for the stats grid.
-    """
-    total    = await tenant_repository.count_all_tenants()
-    active   = await tenant_repository.count_tenants_by_status(TenantStatus.ACTIVE)
-    pending  = await tenant_repository.count_tenants_by_status(TenantStatus.PENDING)
-    inactive = await tenant_repository.count_tenants_by_status(TenantStatus.INACTIVE)
-    moved_out= await tenant_repository.count_tenants_by_status(TenantStatus.MOVED_OUT)
+    total     = await tenant_repository.count_all_tenants()
+    active    = await tenant_repository.count_tenants_by_status(TenantStatus.ACTIVE)
+    pending   = await tenant_repository.count_tenants_by_status(TenantStatus.PENDING)
+    inactive  = await tenant_repository.count_tenants_by_status(TenantStatus.INACTIVE)
+    moved_out = await tenant_repository.count_tenants_by_status(TenantStatus.MOVED_OUT)
 
     return {
         "total":     total,
@@ -306,27 +237,21 @@ async def update_tenant(
     request: TenantUpdateRequest,
     updated_by: str
 ) -> TenantResponse:
-    """
-    Partially updates a tenant's profile fields.
-
-    Only fields present in the request are updated.
-    Email and phone uniqueness are re-validated if changed.
-    """
     tenant = await _assert_tenant_exists(tenant_id)
 
     updates: dict = {}
 
-    if request.first_name   is not None: updates["first_name"]   = request.first_name
-    if request.last_name    is not None: updates["last_name"]    = request.last_name
-    if request.middle_name  is not None: updates["middle_name"]  = request.middle_name
-    if request.date_of_birth is not None: updates["date_of_birth"] = request.date_of_birth
-    if request.gender       is not None: updates["gender"]       = request.gender
-    if request.civil_status is not None: updates["civil_status"] = request.civil_status
-    if request.nationality  is not None: updates["nationality"]  = request.nationality
-    if request.occupation   is not None: updates["occupation"]   = request.occupation
-    if request.employer     is not None: updates["employer"]     = request.employer
+    if request.first_name     is not None: updates["first_name"]     = request.first_name
+    if request.last_name      is not None: updates["last_name"]      = request.last_name
+    if request.middle_name    is not None: updates["middle_name"]    = request.middle_name
+    if request.date_of_birth  is not None: updates["date_of_birth"]  = request.date_of_birth
+    if request.gender         is not None: updates["gender"]         = request.gender
+    if request.civil_status   is not None: updates["civil_status"]   = request.civil_status
+    if request.nationality    is not None: updates["nationality"]    = request.nationality
+    if request.occupation     is not None: updates["occupation"]     = request.occupation
+    if request.employer       is not None: updates["employer"]       = request.employer
     if request.monthly_income is not None: updates["monthly_income"] = request.monthly_income
-    if request.notes        is not None: updates["notes"]        = request.notes
+    if request.notes          is not None: updates["notes"]          = request.notes
 
     if request.phone is not None and request.phone != tenant.phone:
         await _assert_no_duplicate_phone(request.phone, exclude_id=tenant_id)
@@ -361,7 +286,7 @@ async def update_tenant(
             id_number=request.government_id.id_number,
             issued_date=request.government_id.issued_date,
             expiry_date=request.government_id.expiry_date,
-            verified=False,       # Reset verification on ID re-submission
+            verified=False,
             verified_by=None,
             verified_at=None,
         ).model_dump()
@@ -374,7 +299,7 @@ async def update_tenant(
         updates=updates,
         updated_by=updated_by
     )
-    return TenantResponse.from_tenant(updated)
+    return to_tenant_response(updated)
 
 
 async def update_tenant_status(
@@ -382,13 +307,6 @@ async def update_tenant_status(
     status: TenantStatus,
     updated_by: str
 ) -> TenantResponse:
-    """
-    Updates the status of a tenant directly.
-
-    Rules:
-    - Cannot set ACTIVE unless a room is assigned
-    - Cannot set PENDING if tenant already has a room
-    """
     tenant = await _assert_tenant_exists(tenant_id)
 
     if status == TenantStatus.ACTIVE and not tenant.is_occupying:
@@ -408,7 +326,7 @@ async def update_tenant_status(
         status=status,
         updated_by=updated_by
     )
-    return TenantResponse.from_tenant(updated)
+    return to_tenant_response(updated)
 
 
 async def update_profile_picture(
@@ -416,10 +334,6 @@ async def update_profile_picture(
     filepath_or_url: str,
     updated_by: str
 ) -> TenantResponse:
-    """
-    Updates the tenant's profile picture.
-    filepath_or_url should come from FileStorageService after upload.
-    """
     await _assert_tenant_exists(tenant_id)
 
     updated = await tenant_repository.update_profile_picture(
@@ -427,7 +341,7 @@ async def update_profile_picture(
         filepath_or_url=filepath_or_url,
         updated_by=updated_by
     )
-    return TenantResponse.from_tenant(updated)
+    return to_tenant_response(updated)
 
 
 # ================================================================
@@ -440,19 +354,6 @@ async def assign_room_to_tenant(
     move_in_date: datetime,
     updated_by: str
 ) -> TenantResponse:
-    """
-    Assigns a room to a tenant and activates them.
-
-    Validations:
-    - Tenant must exist
-    - Tenant must not already be occupying a room
-    - Room must exist
-    - Room must be vacant (no active tenant assigned)
-
-    Sets status to ACTIVE and records move_in_date.
-    Should be called by LeaseService when a lease is created —
-    not directly from a controller.
-    """
     tenant = await _assert_tenant_exists(tenant_id)
 
     if tenant.is_occupying:
@@ -470,7 +371,7 @@ async def assign_room_to_tenant(
         move_in_date=move_in_date,
         updated_by=updated_by
     )
-    return TenantResponse.from_tenant(updated)
+    return to_tenant_response(updated)
 
 
 async def unassign_room_from_tenant(
@@ -478,17 +379,6 @@ async def unassign_room_from_tenant(
     move_out_date: datetime,
     updated_by: str
 ) -> TenantResponse:
-    """
-    Removes the room assignment from a tenant on move-out.
-
-    Validations:
-    - Tenant must exist
-    - Tenant must currently be occupying a room
-
-    Sets status to MOVED_OUT and records move_out_date.
-    Should be called by LeaseService on lease termination —
-    not directly from a controller.
-    """
     tenant = await _assert_tenant_exists(tenant_id)
 
     if not tenant.is_occupying:
@@ -501,7 +391,7 @@ async def unassign_room_from_tenant(
         move_out_date=move_out_date,
         updated_by=updated_by
     )
-    return TenantResponse.from_tenant(updated)
+    return to_tenant_response(updated)
 
 
 # ================================================================
@@ -514,14 +404,6 @@ async def record_deposit_payment(
     deposit_date: datetime,
     updated_by: str
 ) -> TenantResponse:
-    """
-    Records that a tenant has paid their security deposit.
-
-    Validations:
-    - Tenant must exist
-    - Deposit must not already be recorded as paid
-    - Amount must be greater than zero
-    """
     tenant = await _assert_tenant_exists(tenant_id)
 
     if tenant.deposit_paid:
@@ -538,7 +420,7 @@ async def record_deposit_payment(
         deposit_date=deposit_date,
         updated_by=updated_by
     )
-    return TenantResponse.from_tenant(updated)
+    return to_tenant_response(updated)
 
 
 async def update_tenant_balance(
@@ -546,11 +428,6 @@ async def update_tenant_balance(
     outstanding_balance: float,
     total_paid: float
 ) -> TenantResponse:
-    """
-    Updates the tenant's financial summary.
-    Called exclusively by BillingService and PaymentService.
-    Do NOT call this from a controller directly.
-    """
     await _assert_tenant_exists(tenant_id)
 
     if outstanding_balance < 0:
@@ -564,7 +441,7 @@ async def update_tenant_balance(
         outstanding_balance=outstanding_balance,
         total_paid=total_paid
     )
-    return TenantResponse.from_tenant(updated)
+    return to_tenant_response(updated)
 
 
 # ================================================================
@@ -575,13 +452,6 @@ async def verify_tenant_id(
     tenant_id: PydanticObjectId,
     verified_by: str
 ) -> TenantResponse:
-    """
-
-    Validations:
-    - Tenant must exist
-    - Tenant must have submitted a government ID
-    - ID must not already be verified
-    """
     tenant = await _assert_tenant_exists(tenant_id)
 
     if not tenant.government_id:
@@ -598,7 +468,7 @@ async def verify_tenant_id(
         tenant_id=tenant_id,
         verified_by=verified_by
     )
-    return TenantResponse.from_tenant(updated)
+    return to_tenant_response(updated)
 
 
 # ================================================================
@@ -606,19 +476,6 @@ async def verify_tenant_id(
 # ================================================================
 
 async def delete_tenant(tenant_id: PydanticObjectId) -> dict:
-    """
-    Hard deletes a tenant record.
-
-    WARNING: Prefer updating status to INACTIVE or MOVED_OUT.
-    Only use this for test data cleanup or admin corrections.
-    Active tenants with rooms or outstanding balances should
-    never be hard deleted.
-
-    Validations:
-    - Tenant must exist
-    - Tenant must not be currently occupying a room
-    - Tenant must have zero outstanding balance
-    """
     tenant = await _assert_tenant_exists(tenant_id)
 
     if tenant.is_occupying:

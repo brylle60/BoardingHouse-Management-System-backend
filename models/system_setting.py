@@ -1,11 +1,4 @@
-# ============================================================
-# models/system_setting.py
-# ResidEase – Boarding House Management System
-#
-# Stores global system configuration managed by ADMIN.
-# Single-document pattern — only ONE settings document
-# exists in the collection at all times.
-# ============================================================
+
 
 from beanie import Document
 from pydantic import BaseModel, Field
