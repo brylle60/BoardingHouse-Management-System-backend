@@ -9,6 +9,7 @@ from models.tenant import (
     EmergencyContact,
     Address,
 )
+from models.room import RoomStatus
 from repository import tenant_repository, room_repository, user_repository
 from dto.request.tenant_request import TenantCreateRequest, TenantUpdateRequest
 from dto.response.tenant_response import TenantResponse, to_tenant_response, to_tenant_summary
@@ -495,3 +496,43 @@ async def delete_tenant(tenant_id: PydanticObjectId) -> dict:
         raise ResourceNotFoundException(f"Tenant not found: {tenant_id}")
 
     return {"message": f"Tenant {tenant.full_name} has been permanently deleted."}
+
+
+# ================================================================
+# UNASSIGN / KICK  (manager removes tenant from room)
+# ================================================================
+
+async def unassign_tenant(
+    tenant_id: PydanticObjectId,
+    updated_by: str
+) -> dict:
+
+    # Avoid circular import — booking_repository imported here
+    from repository import booking_repository
+
+    tenant = await _assert_tenant_exists(tenant_id)
+    full_name = tenant.full_name
+
+    # 1. Free the room
+    if tenant.is_occupying:
+        room = await room_repository.get_room_by_id(tenant.room_id)
+        if room:
+            room.status = RoomStatus.VACANT
+            await room.save()
+
+        await tenant_repository.unassign_room(
+            tenant_id=tenant_id,
+            move_out_date=datetime.utcnow(),
+            updated_by=updated_by
+        )
+
+    # 2. Delete all bookings linked to this user
+    if tenant.user_id:
+        await booking_repository.delete_bookings_by_user_id(tenant.user_id)
+
+    # 3. Delete the tenant profile
+    await tenant_repository.delete_tenant(tenant_id)
+
+    return {
+        "message": f"Tenant {full_name} has been unassigned. Room is now vacant."
+    }

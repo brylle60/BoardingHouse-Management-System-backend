@@ -1,10 +1,3 @@
-"""
-controllers/booking_request_controller.py
-
-Endpoints for:
-- Tenants applying to book a room
-- Managers / Admins reviewing / approving / rejecting bookings
-"""
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from beanie import PydanticObjectId

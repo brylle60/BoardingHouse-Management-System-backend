@@ -24,13 +24,12 @@ from pydantic import BaseModel, Field
 
 
 class SubmitMaintenanceRequestBody(BaseModel):
-    room_id:     str
+    room_id:     Optional[str] = None   # ← make optional
     title:       str = Field(..., min_length=3, max_length=200)
-    description: str = Field(..., min_length=10, max_length=2000)
+    description: str = Field(..., min_length=3, max_length=2000)
     category:    MaintenanceCategory = MaintenanceCategory.OTHER
     priority:    MaintenancePriority = MaintenancePriority.MEDIUM
     photos:      list[str] = []
-
 
 class UpdateMaintenanceStatusBody(BaseModel):
     status: MaintenanceStatus
@@ -52,15 +51,14 @@ async def submit_maintenance(
 ):
     """Any authenticated user may submit a maintenance request for a room."""
     req = MaintenanceRequest(
-        tenant_id       = PydanticObjectId(current_user.id),
-        room_id         = PydanticObjectId(body.room_id),
-        title           = body.title,
-        description     = body.description,
-        category        = body.category,
-        priority        = body.priority,
-        photos          = body.photos,
-        status          = MaintenanceStatus.SUBMITTED,
-        assigned_to     = None,
+        tenant_id   = PydanticObjectId(current_user.id),
+        room_id     = PydanticObjectId(body.room_id) if body.room_id else None,  # ← handle None
+        title       = body.title,
+        description = body.description,
+        category    = body.category,
+        priority    = body.priority,
+        photos      = body.photos,
+        status      = MaintenanceStatus.SUBMITTED,
     )
     await req.insert()
     return {
@@ -69,28 +67,27 @@ async def submit_maintenance(
     }
 
 
-@router.get(
-    "/my",
-    summary="Get my maintenance requests",
-)
+@router.get("/my")
 async def get_my_maintenance(
     current_user: User = Depends(get_current_user),
 ):
-    """Returns all maintenance requests submitted by the current user."""
-    reqs = await MaintenanceRequest.find({"tenant_id": str(current_user.id)}).sort(-MaintenanceRequest.created_at).to_list()
+    reqs = await MaintenanceRequest.find(
+        MaintenanceRequest.tenant_id == PydanticObjectId(current_user.id)  # ✅
+    ).sort(-MaintenanceRequest.created_at).to_list()
+
     return {
         "requests": [
             {
-                "id":              str(r.id),
-                "room_id":         r.room_id,
-                "title":           r.title,
-                "description":     r.description,
-                "category":        r.category.value,
-                "priority":        r.priority.value,
-                "status":          r.status.value,
-                "photos":          r.photos,
-                "created_at":      r.created_at.isoformat(),
-                "updated_at":      r.updated_at.isoformat(),
+                "id":          str(r.id),
+                "room_id":     str(r.room_id) if r.room_id else None,
+                "title":       r.title,
+                "description": r.description,
+                "category":    r.category.value,
+                "priority":    r.priority.value,
+                "status":      r.status.value,
+                "photos":      r.photos,
+                "created_at":  r.created_at.isoformat(),
+                "updated_at":  r.updated_at.isoformat(),
             }
             for r in reqs
         ]
