@@ -538,7 +538,7 @@ async def unassign_tenant(
         if room:
             room.status = RoomStatus.VACANT
             # Reset occupant count safely
-            room.current_occupants = max(0, (room.current_occupants or 1) - 1)
+            room.current_occupants = max(0, room.current_occupants - 1)
             room.updated_at = datetime.utcnow()
             await room.save()
 
