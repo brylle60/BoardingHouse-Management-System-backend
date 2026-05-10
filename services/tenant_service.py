@@ -2,6 +2,10 @@ from beanie import PydanticObjectId
 from datetime import datetime
 from typing import Optional
 
+from fastapi import HTTPException
+
+from models.booking_request import BookingRequest, BookingStatus
+from models.lease import Lease, LeaseStatus
 from models.tenant import (
     Tenant,
     TenantStatus,
@@ -9,7 +13,7 @@ from models.tenant import (
     EmergencyContact,
     Address,
 )
-from models.room import RoomStatus
+from models.room import Room, RoomStatus
 from repository import tenant_repository, room_repository, user_repository
 from dto.request.tenant_request import TenantCreateRequest, TenantUpdateRequest
 from dto.response.tenant_response import TenantResponse, to_tenant_response, to_tenant_summary
@@ -499,40 +503,72 @@ async def delete_tenant(tenant_id: PydanticObjectId) -> dict:
 
 
 # ================================================================
-# UNASSIGN / KICK  (manager removes tenant from room)
+# UNASSIGN  (manager removes tenant from room — full cleanup)
+#
+# FIX: The old version deleted bookings by email which is unreliable.
+#      Now deletes by user_id (the correct foreign key), terminates
+#      any active leases, resets the room occupant count, and deletes
+#      the tenant profile — leaving the User account intact so the
+#      person can log in and book again.
 # ================================================================
 
 async def unassign_tenant(
     tenant_id: PydanticObjectId,
-    updated_by: str
+    updated_by: str,
 ) -> dict:
+    """
+    Full cleanup when a manager unassigns a tenant:
+      1. Set the room back to VACANT and reset occupant count
+      2. Terminate any active leases for this tenant
+      3. Delete ALL booking records for this user_id (not email!)
+      4. Delete the tenant profile
+      → The User account is preserved so they can book again.
+    """
+    tenant = await Tenant.get(tenant_id)
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
 
-    # Avoid circular import — booking_repository imported here
-    from repository import booking_repository
-
-    tenant = await _assert_tenant_exists(tenant_id)
     full_name = tenant.full_name
+    user_id   = tenant.user_id   # preserve before deletion
+    room_id   = tenant.room_id   # preserve before deletion
 
-    # 1. Free the room
-    if tenant.is_occupying:
-        room = await room_repository.get_room_by_id(tenant.room_id)
+    # ── 1. Free the room ─────────────────────────────────────────
+    if room_id:
+        room = await Room.get(PydanticObjectId(room_id))
         if room:
             room.status = RoomStatus.VACANT
+            # Reset occupant count safely
+            room.current_occupants = max(0, (room.current_occupants or 1) - 1)
+            room.updated_at = datetime.utcnow()
             await room.save()
 
-        await tenant_repository.unassign_room(
-            tenant_id=tenant_id,
-            move_out_date=datetime.utcnow(),
-            updated_by=updated_by
-        )
+    # ── 2. Terminate active leases ───────────────────────────────
+    # Leaves a history record — just marks them TERMINATED
+    active_leases = await Lease.find(
+        Lease.tenant_id == str(tenant_id),
+        Lease.status    == LeaseStatus.ACTIVE,
+    ).to_list()
+    for lease in active_leases:
+        lease.status     = LeaseStatus.TERMINATED
+        lease.updated_at = datetime.utcnow()
+        await lease.save()
 
-    # 2. Delete all bookings linked to this user
-    if tenant.user_id:
-        await booking_repository.delete_bookings_by_user_id(tenant.user_id)
+    # ── 3. Delete ALL booking records for this user ───────────────
+    # Uses user_id (not email) — the correct and stable foreign key.
+    # This clears PENDING, APPROVED, CONFIRMED, and REJECTED bookings
+    # so the user can submit a fresh booking without conflicts.
+    if user_id:
+        await BookingRequest.find(
+            BookingRequest.user_id == str(user_id)
+        ).delete()
 
-    # 3. Delete the tenant profile
-    await tenant_repository.delete_tenant(tenant_id)
+    # ── 4. Delete the tenant profile ─────────────────────────────
+    # The User account (login) is NOT touched — they can book again.
+    await tenant.delete()
 
     return {
-        "message": f"Tenant {full_name} has been unassigned. Room is now vacant."
+        "message": (
+            f"Tenant {full_name} has been unassigned. "
+            "Room is now vacant and the user can book again."
+        )
     }

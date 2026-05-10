@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from beanie import PydanticObjectId
 from typing import Optional
@@ -99,18 +98,20 @@ async def apply_booking(
     if not room.is_vacant:
         raise HTTPException(400, "This room is no longer available for booking.")
 
-    # Prevent duplicate pending applications for same room by same user
-    existing = await BookingRequest.find_one(
-        {
-            "user_id": str(current_user.id),
-            "room_id": body.room_id,
-            "status": BookingStatus.PENDING.value,
-        }
-    )
+    # Block if user already has ANY non-rejected/non-cancelled booking
+    # (prevents re-booking conflicts after unassign if old records weren't cleared)
+    existing = await BookingRequest.find_one({
+        "user_id": str(current_user.id),
+        "status": {"$in": [
+            BookingStatus.PENDING.value,
+            BookingStatus.APPROVED.value,
+        ]},
+    })
     if existing:
         raise HTTPException(
             400,
-            "You already have a pending booking request for this room.",
+            "You already have an active booking request. "
+            "Please wait for manager review or cancel your existing request.",
         )
 
     req = BookingRequest(
@@ -276,26 +277,36 @@ async def review_booking(
 ):
     """
     Manager/Admin reviews a booking.
-    If APPROVED, the room is marked RESERVED (actual lease creation is separate).
+    - APPROVED  → creates Tenant profile + Lease + marks room OCCUPIED
+    - REJECTED  → frees room, terminates lease, deletes tenant profile,
+                  deletes ALL bookings for this user_id so they can re-book
     """
     req = await get_booking_or_404(booking_id)
 
     if req.status != BookingStatus.PENDING:
         raise HTTPException(400, "This booking has already been reviewed.")
 
-    req.status = body.status
-    req.reviewed_by = str(current_user.id)
-    req.reviewed_at = datetime.utcnow()
+    req.status       = body.status
+    req.reviewed_by  = str(current_user.id)
+    req.reviewed_at  = datetime.utcnow()
     req.review_notes = body.review_notes
-    req.updated_at = datetime.utcnow()
+    req.updated_at   = datetime.utcnow()
     await req.save()
 
+    # ── APPROVED ──────────────────────────────────────────────────────────
     if body.status == BookingStatus.APPROVED:
         room = await Room.get(PydanticObjectId(req.room_id))
         if room and room.is_vacant:
-            # ── 1. Create Tenant profile from booking data (if not exists) ──
+            # 1. Create (or reuse) Tenant profile
             existing_tenant = await Tenant.find_one({"user_id": req.user_id})
+            if not existing_tenant:
+                existing_tenant = await Tenant.find_one({"email": req.email})
+
             if existing_tenant:
+                existing_tenant.room_id    = req.room_id
+                existing_tenant.status     = TenantStatus.ACTIVE
+                existing_tenant.updated_at = datetime.utcnow()
+                await existing_tenant.save()
                 tenant = existing_tenant
             else:
                 name_parts = req.full_name.strip().split()
@@ -332,7 +343,7 @@ async def review_booking(
                 )
                 await tenant.insert()
 
-            # Always update personal details from booking form (in case tenant exists but nulls remain)
+            # Back-fill any missing personal details
             from beanie.operators import Set as BSet
             profile_updates = {}
             if req.date_of_birth and not tenant.date_of_birth:
@@ -361,32 +372,34 @@ async def review_booking(
                 profile_updates["updated_by"] = str(current_user.id)
                 await tenant.update(BSet(profile_updates))
 
-            # ── 2. Create Lease ──
-            today = date.today()
+            # 2. Create Lease
+            today  = date.today()
             end_dt = date(today.year + 1, today.month, min(today.day, 28))
-            lease = Lease(
-                tenant_id        = str(tenant.id),
-                room_id          = req.room_id,
-                start_date       = today,
-                end_date         = end_dt,
-                status           = LeaseStatus.ACTIVE,
-                monthly_rate     = req.monthly_rent,
-                payment_frequency= PaymentFrequency.MONTHLY,
-                deposit_amount   = req.monthly_rent * 2,
-                advance_amount   = req.monthly_rent,
-                due_day          = 1,
-                created_by       = str(current_user.id),
+            lease  = Lease(
+                tenant_id         = str(tenant.id),
+                room_id           = req.room_id,
+                start_date        = today,
+                end_date          = end_dt,
+                status            = LeaseStatus.ACTIVE,
+                monthly_rate      = req.monthly_rent,
+                payment_frequency = PaymentFrequency.MONTHLY,
+                deposit_amount    = req.monthly_rent * 2,
+                advance_amount    = req.monthly_rent,
+                due_day           = 1,
+                created_by        = str(current_user.id),
             )
             await lease.insert()
 
-            # ── 3. Update room ──
+            # 3. Mark room occupied
             room.status = RoomStatus.OCCUPIED
             room.current_occupants = min(room.current_occupants + 1, room.max_occupants)
             room.updated_at = datetime.utcnow()
             await room.save()
 
-    if body.status == BookingStatus.REJECTED:
-        # ── Notify the applicant of rejection ──
+    # ── REJECTED ──────────────────────────────────────────────────────────
+    elif body.status == BookingStatus.REJECTED:
+
+        # 1. Notify applicant
         try:
             from models.notification import Notification, NotificationType, NotificationPriority
             reason_text = body.review_notes or "No reason provided."
@@ -396,8 +409,11 @@ async def review_booking(
                 notification_type = NotificationType.ANNOUNCEMENT,
                 priority          = NotificationPriority.HIGH,
                 title             = f"Booking for Room {req.room_number or req.room_id[:8]} was Rejected",
-                message           = f"Your booking application for Room {req.room_number or req.room_id[:8]} has been rejected. "
-                                    f"Reason: {reason_text} You may browse other available rooms.",
+                message           = (
+                    f"Your booking application for Room {req.room_number or req.room_id[:8]} "
+                    f"has been rejected. Reason: {reason_text} "
+                    "You may browse other available rooms."
+                ),
                 reference_id      = str(req.id),
                 reference_type    = "booking_request",
             )
@@ -405,44 +421,62 @@ async def review_booking(
         except Exception:
             pass
 
-        # ── Clean up room and tenant if this booking had already reserved/occupied the room ──
+        # 2. Free the room if this booking had already occupied / reserved it
         try:
             room = await Room.get(PydanticObjectId(req.room_id))
             if room and room.status in (RoomStatus.RESERVED, RoomStatus.OCCUPIED):
-                # Only reset if no other active/approved bookings hold this room
+                # Only reset if no OTHER approved booking holds this room
                 other_approved = await BookingRequest.find_one({
                     "room_id": req.room_id,
-                    "status": BookingStatus.APPROVED.value,
-                    "_id": {"$ne": PydanticObjectId(req.id)},
+                    "status":  BookingStatus.APPROVED.value,
+                    "_id":     {"$ne": PydanticObjectId(req.id)},
                 })
                 if not other_approved:
                     room.status = RoomStatus.VACANT
-                    room.current_occupants = max(0, room.current_occupants - 1)
+                    room.current_occupants = max(0, (room.current_occupants or 1) - 1)
                     room.updated_at = datetime.utcnow()
                     await room.save()
+        except Exception:
+            pass
 
-            # Deactivate tenant created from this booking (if any)
-            tenant = await Tenant.find_one({"user_id": req.user_id, "room_id": req.room_id, "status": TenantStatus.ACTIVE})
+        # 3. Terminate any active lease + clean up the tenant profile
+        #    then delete ALL booking records for this user so they can re-book.
+        #    FIX: delete by user_id (stable FK), not by email (can change).
+        try:
+            tenant = await Tenant.find_one({
+                "user_id": req.user_id,
+                "room_id": req.room_id,
+                "status":  TenantStatus.ACTIVE,
+            })
             if tenant:
-                lease = await Lease.find_one({"tenant_id": str(tenant.id), "room_id": req.room_id, "status": LeaseStatus.ACTIVE})
+                # Terminate active lease (keep record for history)
+                lease = await Lease.find_one({
+                    "tenant_id": str(tenant.id),
+                    "room_id":   req.room_id,
+                    "status":    LeaseStatus.ACTIVE,
+                })
                 if lease:
-                    lease.status = LeaseStatus.TERMINATED
+                    lease.status     = LeaseStatus.TERMINATED
                     lease.updated_at = datetime.utcnow()
                     await lease.save()
 
-                tenant.room_id = None
-                tenant.status = TenantStatus.INACTIVE
-                tenant.move_out_date = datetime.utcnow()
-                tenant.updated_at = datetime.utcnow()
-                await tenant.save()
+                # Delete the tenant profile so email/phone are freed
+                await tenant.delete()
+
+            # Delete ALL bookings for this user (PENDING, APPROVED, this one)
+            # so they can submit a fresh application without hitting duplicate checks
+            await BookingRequest.find(
+                BookingRequest.user_id == req.user_id
+            ).delete()
+
         except Exception:
-            pass  # cleanup is best-effort; don't fail the rejection
+            pass  # cleanup is best-effort; don't fail the rejection response
 
     action_word = "approved" if body.status == BookingStatus.APPROVED else "rejected"
     return {
-        "message": f"Booking {action_word} successfully.",
+        "message":    f"Booking {action_word} successfully.",
         "booking_id": str(req.id),
-        "status": req.status.value,
+        "status":     req.status.value,
     }
 
 
