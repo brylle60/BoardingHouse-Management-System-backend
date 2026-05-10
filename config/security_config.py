@@ -55,6 +55,7 @@ PUBLIC_ROUTES = {
     "/api/auth/forgot-password",
     "/api/auth/verify-otp",
     "/api/auth/reset-password",
+    "/api/auth/refresh",
 
     # ── OAuth endpoints ───────────────────────────────────────────────────
     "/api/auth/google",

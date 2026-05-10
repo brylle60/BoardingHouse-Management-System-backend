@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from beanie import PydanticObjectId
 from models.user import User, RoleName
 from config.jwt_middleware import get_current_user, require_roles
 from services.communication_service import communication_service
@@ -47,8 +48,9 @@ async def get_tenant_messages(
     tenant_id: str,
     current_user: User = Depends(get_current_user),
 ):
-    messages = await communication_service.get_tenant_inbox(tenant_id)
-    return [to_message_response(m) for m in messages]
+    msgs = await communication_service.get_tenant_inbox(tenant_id)
+    sender_map = await _build_sender_map(msgs)
+    return [to_message_response(m, sender_name=sender_map.get(str(m.sender_id))) for m in msgs]
 
 
 @router.get(
@@ -68,6 +70,20 @@ async def get_thread(
     )
 
 
+async def _build_sender_map(messages: list) -> dict[str, str]:
+    """Batch-fetch sender display names keyed by sender_id string."""
+    sender_map: dict[str, str] = {}
+    for m in messages:
+        sid = str(m.sender_id)
+        if sid not in sender_map:
+            try:
+                u = await User.get(PydanticObjectId(sid))
+                sender_map[sid] = u.full_name or u.username
+            except Exception:
+                sender_map[sid] = "Management"
+    return sender_map
+
+
 @router.get(
     "/messages/unread",
     response_model=list[MessageResponse],
@@ -76,8 +92,9 @@ async def get_thread(
 async def get_unread_messages(
     current_user: User = Depends(get_current_user),
 ):
-    messages = await communication_service.get_unread_messages(str(current_user.id))
-    return [to_message_response(m) for m in messages]
+    msgs = await communication_service.get_unread_messages(str(current_user.id))
+    sender_map = await _build_sender_map(msgs)
+    return [to_message_response(m, sender_name=sender_map.get(str(m.sender_id))) for m in msgs]
 
 
 @router.get(

@@ -41,7 +41,7 @@ async def get_tenant_by_user_id(
     One User → One Tenant profile.
     """
     return await Tenant.find_one(
-        Tenant.user_id.id == user_id,
+        Tenant.user_id == str(user_id),
         fetch_links=fetch_links
     )
 
@@ -85,7 +85,7 @@ async def get_tenant_by_room(
     Returns None if the room is vacant.
     """
     return await Tenant.find_one(
-        Tenant.room_id.id == room_id,
+        Tenant.room_id == str(room_id),
         Tenant.status == TenantStatus.ACTIVE,
         fetch_links=fetch_links
     )

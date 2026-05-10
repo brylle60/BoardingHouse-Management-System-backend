@@ -132,12 +132,38 @@ class PaymentService:
         return await payment_repository.find_payments_by_lease(lease_id)
 
     async def get_payment_stats(self) -> PaymentStatsResponse:
+        """
+        Returns field names that match the frontend PaymentStats interface:
+          total_payments, paid_count, unpaid_count, partial_count,
+          total_collected, total_outstanding, monthly_revenue, monthly_collected
+
+        Guard: any Payment with amount=None is treated as 0 so a malformed
+        document never crashes the whole stats endpoint.
+        """
         all_payments = await payment_repository.get_all_payments()
-        confirmed    = [p for p in all_payments if p.status == PaymentStatus.CONFIRMED]
-        pending      = [p for p in all_payments if p.status == PaymentStatus.PENDING]
+
+        confirmed = [p for p in all_payments if p.status == PaymentStatus.CONFIRMED]
+        pending   = [p for p in all_payments if p.status == PaymentStatus.PENDING]
+        failed    = [p for p in all_payments if p.status == PaymentStatus.FAILED]
+
+        # Monthly figures — payments confirmed in the current calendar month
+        now = datetime.utcnow()
+        monthly_confirmed = [
+            p for p in confirmed
+            if p.confirmed_at
+            and p.confirmed_at.year  == now.year
+            and p.confirmed_at.month == now.month
+        ]
+
+        def safe_sum(payments) -> float:
+            """Sum amounts, skipping any None values from malformed records."""
+            return sum(p.amount or 0.0 for p in payments)
+
+        # Field names must match PaymentStatsResponse exactly:
+        #   total_collected, total_pending, confirmed_count, pending_count
         return PaymentStatsResponse(
-            total_collected = sum(p.amount for p in confirmed),
-            total_pending   = sum(p.amount for p in pending),
+            total_collected = safe_sum(confirmed),
+            total_pending   = safe_sum(pending),
             confirmed_count = len(confirmed),
             pending_count   = len(pending),
         )

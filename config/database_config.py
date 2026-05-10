@@ -14,26 +14,27 @@ from models.notification import Notification
 from models.message import Message, Announcement
 from models.manager_role_request import ManagerRoleRequest
 from models.booking_request import BookingRequest
+from models.system_setting import SystemSetting
+
 
 class DataSettings(BaseSettings):
-    # Pydantic will automatically look for MONGODB_URL and MONGODB_NAME in your .env
-    mongodb_url: str = Field(..., alias="DATABASE_URL") 
+    mongodb_url: str = Field(..., alias="DATABASE_URL")
     mongodb_name: str = Field(..., alias="MONGODB_NAME")
 
     model_config = {
         "env_file": ".env",
         "extra": "ignore",
     }
+
+
 async def init_database():
     settings = DataSettings()
     client = AsyncIOMotorClient(settings.mongodb_url)
     database = client[settings.mongodb_name]
 
-    #add models here as you create your own models
-
     await init_beanie(
         database=database,
-        document_models = [
+        document_models=[
             User,
             Tenant,
             OtpCode,
@@ -46,7 +47,8 @@ async def init_database():
             MaintenanceRequest,
             ManagerRoleRequest,
             BookingRequest,
+            SystemSetting,   # ← was imported but never registered
         ]
     )
     print("Connected to MongoDB:", settings.mongodb_name)
-    print(f"Registered models: User")
+    print("Registered models: User, Tenant, OtpCode, Room, Message, Announcement, Notification, Lease, Payment, MaintenanceRequest, ManagerRoleRequest, BookingRequest, SystemSetting")
