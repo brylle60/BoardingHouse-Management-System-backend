@@ -1,19 +1,3 @@
-"""
-controllers/manager_controller.py
-
-All HTTP endpoints for manager-facing operations.
-Requires ROLE_MANAGER or ROLE_ADMIN.
-
-NOTE: This controller uses your groupmates' existing function-based
-services — no singleton instances needed.
-
-Routes:
-  /api/manager/rooms/**
-  /api/manager/leases/**
-  /api/manager/payments/**
-  /api/manager/maintenance/**
-  /api/manager/dashboard
-"""
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from beanie import PydanticObjectId
