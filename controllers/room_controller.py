@@ -333,7 +333,7 @@ async def get_room_by_number(
 async def get_room_by_id(
     room_id: PydanticObjectId = Path(..., description="Room MongoDB ObjectId"),
     current_user=Depends(require_roles(
-        RoleName.ADMIN, RoleName.MANAGER
+        RoleName.ADMIN, RoleName.MANAGER, RoleName.TENANT,
     )),
 ):
     data = await room_service.get_room_by_id(room_id)

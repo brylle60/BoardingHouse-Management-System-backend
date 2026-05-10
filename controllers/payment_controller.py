@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
+from beanie import PydanticObjectId
+from repository import tenant_repository
 
 from config.jwt_middleware import get_current_user, require_roles
 from services.payment_service import payment_service
@@ -185,6 +187,34 @@ async def confirm_payment(payment_id: str):
 async def delete_payment(payment_id: str):
     result = await payment_service.delete_payment(payment_id)
     return ApiResponse(success=True, message=result["message"], data=result)
+
+
+# ─── Self-service: tenant views their own payments ────────────────────────────
+
+@router.get(
+    "/me",
+    response_model=ApiResponse[PaymentListResponse],
+    summary="Get my payments (tenant self-service)",
+)
+async def get_my_payments(
+    current_user=Depends(get_current_user),
+):
+    tenant = await tenant_repository.get_tenant_by_user_id(
+        PydanticObjectId(str(current_user.id))
+    )
+    if not tenant:
+        return ApiResponse.success(
+            data=PaymentListResponse(total=0, payments=[]),
+            message="No tenant profile found.",
+        )
+    payments = await payment_service.get_tenant_payments(str(tenant.id))
+    return ApiResponse.success(
+        data=PaymentListResponse(
+            total=len(payments),
+            payments=[PaymentResponse.from_payment(p) for p in payments],
+        ),
+        message="Your payments retrieved.",
+    )
 
 
 # ─── Single get (dynamic — always last) ───────────────────────────────────────

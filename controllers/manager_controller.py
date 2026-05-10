@@ -28,7 +28,8 @@ from config.jwt_middleware import get_current_user
 # ── Import your groupmates' existing services (function-based) ────────────────
 from services import room_service
 from services import lease_service
-from services import payment_service
+# FIX: payment_service is class-based — import the singleton instance, not the module
+from services.payment_service import payment_service
 # maintenance_service is class-based — import the singleton instance, not the module
 from services.maintenance_service import maintenance_service
 
@@ -360,7 +361,7 @@ async def delete_lease(lease_id: str, _: User = Depends(require_manager)):
 
 
 # ============================================================================
-# PAYMENT ENDPOINTS — uses payment_service
+# PAYMENT ENDPOINTS — uses payment_service singleton
 # ============================================================================
 
 @router.get("/payments", response_model=list[PaymentResponse], summary="List all payments")
@@ -371,7 +372,16 @@ async def list_payments(_: User = Depends(require_manager)):
 
 @router.get("/payments/stats", summary="Payment statistics")
 async def get_payment_stats(_: User = Depends(require_manager)):
-    return await payment_service.get_payment_stats()
+    import logging
+    logger = logging.getLogger(__name__)
+    try:
+        return await payment_service.get_payment_stats()
+    except Exception as exc:
+        logger.error("payment_service.get_payment_stats() failed: %s", exc, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Payment stats unavailable: {exc}",
+        )
 
 
 @router.get("/payments/tenant/{tenant_id}", response_model=list[PaymentResponse])
