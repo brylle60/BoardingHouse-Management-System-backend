@@ -1,3 +1,10 @@
+"""
+services/maintenance_service.py
+
+Business logic for the full maintenance request lifecycle:
+  SUBMITTED → ASSIGNED → IN_PROGRESS → COMPLETED → CLOSED
+                       ↘ REJECTED  (from SUBMITTED or ASSIGNED)
+"""
 
 from fastapi import HTTPException
 from datetime import datetime
@@ -14,9 +21,12 @@ from repository.maintenance_repository import (
 )
 from repository.notification_repository import create_notification
 from models.notification import NotificationType
+from typing import Optional
 
 
 class MaintenanceService:
+
+    # ── Read helpers ──────────────────────────────────────────────────────
 
     async def get_all_requests(self) -> list[MaintenanceRequest]:
         return await find_all_requests()
@@ -36,10 +46,12 @@ class MaintenanceService:
     async def get_requests_by_status(self, status: MaintenanceStatus) -> list[MaintenanceRequest]:
         return await find_requests_by_status(status)
 
+    # ── Lifecycle mutations ───────────────────────────────────────────────
+
     async def submit_request(
         self,
         tenant_id:   str,
-        room_id:     str,
+        room_id:     Optional[str],                          # ← optional
         title:       str,
         description: str,
         category:    MaintenanceCategory = MaintenanceCategory.OTHER,
@@ -48,7 +60,7 @@ class MaintenanceService:
     ) -> MaintenanceRequest:
         req = MaintenanceRequest(
             tenant_id   = PydanticObjectId(tenant_id),
-            room_id     = PydanticObjectId(room_id),
+            room_id     = PydanticObjectId(room_id) if room_id else None,  # ← handle None
             title       = title.strip(),
             description = description.strip(),
             category    = category,
@@ -56,31 +68,30 @@ class MaintenanceService:
             photos      = photos,
             status      = MaintenanceStatus.SUBMITTED,
         )
-        saved = await save_request(req)
-        return saved
+        return await save_request(req)
 
     async def assign_request(
         self,
         request_id:  str,
         assigned_to: str,
     ) -> MaintenanceRequest:
+        """SUBMITTED / ASSIGNED → ASSIGNED."""
         req = await self.get_request_by_id(request_id)
 
         if req.status not in [MaintenanceStatus.SUBMITTED, MaintenanceStatus.ASSIGNED]:
-            raise HTTPException(400, "Request cannot be reassigned at this stage.")
+            raise HTTPException(400, "Request cannot be accepted at this stage.")
 
-        req.assigned_to  = PydanticObjectId(assigned_to)
-        req.status       = MaintenanceStatus.ASSIGNED
-        req.assigned_at  = datetime.utcnow()
-        req.updated_at   = datetime.utcnow()
+        req.assigned_to = PydanticObjectId(assigned_to)
+        req.status      = MaintenanceStatus.ASSIGNED
+        req.assigned_at = datetime.utcnow()
+        req.updated_at  = datetime.utcnow()
         saved = await save_request(req)
 
-        # Notify tenant
         await create_notification(
             user_id        = str(req.tenant_id),
             type           = NotificationType.MAINTENANCE_ASSIGNED,
-            title          = "Maintenance request assigned",
-            message        = f"Your request '{req.title}' has been assigned and will be worked on soon.",
+            title          = "Maintenance request accepted",
+            message        = f"Your request '{req.title}' has been accepted and will be worked on soon.",
             reference_id   = str(saved.id),
             reference_type = "maintenance",
         )
@@ -88,21 +99,35 @@ class MaintenanceService:
         return saved
 
     async def start_request(self, request_id: str) -> MaintenanceRequest:
+        """ASSIGNED → IN_PROGRESS."""
         req = await self.get_request_by_id(request_id)
 
         if req.status != MaintenanceStatus.ASSIGNED:
-            raise HTTPException(400, "Request must be assigned before starting.")
+            raise HTTPException(400, "Request must be accepted before starting.")
 
         req.status     = MaintenanceStatus.IN_PROGRESS
         req.started_at = datetime.utcnow()
         req.updated_at = datetime.utcnow()
-        return await save_request(req)
+
+        saved = await save_request(req)
+
+        await create_notification(
+            user_id        = str(req.tenant_id),
+            type           = NotificationType.GENERAL,
+            title          = "Maintenance work started",
+            message        = f"Work on your request '{req.title}' has started.",
+            reference_id   = str(saved.id),
+            reference_type = "maintenance",
+        )
+
+        return saved
 
     async def complete_request(
         self,
         request_id: str,
         resolution: str,
     ) -> MaintenanceRequest:
+        """IN_PROGRESS → COMPLETED."""
         req = await self.get_request_by_id(request_id)
 
         if req.status != MaintenanceStatus.IN_PROGRESS:
@@ -114,7 +139,6 @@ class MaintenanceService:
         req.updated_at   = datetime.utcnow()
         saved = await save_request(req)
 
-        # Notify tenant to confirm
         await create_notification(
             user_id        = str(req.tenant_id),
             type           = NotificationType.MAINTENANCE_COMPLETED,
@@ -127,22 +151,23 @@ class MaintenanceService:
         return saved
 
     async def close_request(self, request_id: str) -> MaintenanceRequest:
-        """Tenant confirms the issue is resolved — closes the ticket."""
+        """COMPLETED → CLOSED (tenant confirmation or manager override)."""
         req = await self.get_request_by_id(request_id)
 
         if req.status != MaintenanceStatus.COMPLETED:
             raise HTTPException(400, "Request must be completed before closing.")
 
-        req.status    = MaintenanceStatus.CLOSED
-        req.closed_at = datetime.utcnow()
+        req.status     = MaintenanceStatus.CLOSED
+        req.closed_at  = datetime.utcnow()
         req.updated_at = datetime.utcnow()
         return await save_request(req)
 
     async def reject_request(
         self,
-        request_id:        str,
-        rejection_reason:  str,
+        request_id:       str,
+        rejection_reason: str,
     ) -> MaintenanceRequest:
+        """SUBMITTED / ASSIGNED → REJECTED."""
         req = await self.get_request_by_id(request_id)
 
         if req.status not in [MaintenanceStatus.SUBMITTED, MaintenanceStatus.ASSIGNED]:
@@ -153,7 +178,6 @@ class MaintenanceService:
         req.updated_at       = datetime.utcnow()
         saved = await save_request(req)
 
-        # Notify tenant
         await create_notification(
             user_id        = str(req.tenant_id),
             type           = NotificationType.GENERAL,
@@ -170,6 +194,8 @@ class MaintenanceService:
         await delete_request(req)
         return {"message": "Maintenance request deleted."}
 
+    # ── Stats ─────────────────────────────────────────────────────────────
+
     async def get_maintenance_stats(self) -> dict:
         return {
             "submitted":   await count_by_status(MaintenanceStatus.SUBMITTED),
@@ -177,6 +203,7 @@ class MaintenanceService:
             "in_progress": await count_by_status(MaintenanceStatus.IN_PROGRESS),
             "completed":   await count_by_status(MaintenanceStatus.COMPLETED),
             "closed":      await count_by_status(MaintenanceStatus.CLOSED),
+            "rejected":    await count_by_status(MaintenanceStatus.REJECTED),
         }
 
 
