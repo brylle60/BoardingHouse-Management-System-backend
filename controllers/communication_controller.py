@@ -14,6 +14,44 @@ router = APIRouter(prefix="/api", tags=["communication"])
 
 
 # ============================================================================
+# HELPER — resolve manager for a tenant's room
+# ============================================================================
+
+@router.get(
+    "/messages/my-manager",
+    summary="Get the manager user_id for the current tenant's room",
+)
+async def get_my_manager(current_user: User = Depends(get_current_user)):
+    """
+    Returns the manager_id (User._id) associated with the tenant's room.
+    Tenants need this to know who to send messages to.
+    """
+    from models.tenant import Tenant
+    from models.room import Room
+
+    # Find tenant profile for this user
+    tenant = await Tenant.find_one({"user_id": str(current_user.id)})
+    if not tenant or not tenant.room_id:
+        # Fallback: find any manager user
+        manager_user = await User.find_one({"role": RoleName.MANAGER.value})
+        if manager_user:
+            return {"manager_user_id": str(manager_user.id), "source": "fallback"}
+        raise HTTPException(status_code=404, detail="No manager found.")
+
+    # Look up the room to get manager_id
+    room = await Room.get(PydanticObjectId(tenant.room_id))
+    if room and room.manager_id:
+        return {"manager_user_id": room.manager_id, "source": "room"}
+
+    # Fallback: find any manager user
+    manager_user = await User.find_one({"role": RoleName.MANAGER.value})
+    if manager_user:
+        return {"manager_user_id": str(manager_user.id), "source": "fallback"}
+
+    raise HTTPException(status_code=404, detail="No manager found.")
+
+
+# ============================================================================
 # MESSAGE ENDPOINTS
 # ============================================================================
 
@@ -27,16 +65,24 @@ async def send_message(
     body: SendMessageRequest,
     current_user: User = Depends(get_current_user),
 ):
-    message = await communication_service.send_message(
-        sender_id   = str(current_user.id),
-        receiver_id = body.receiver_id,
-        tenant_id   = body.tenant_id,
-        body        = body.body,
-        direction   = body.direction,
-        subject     = body.subject,
-        thread_id   = body.thread_id,
-    )
-    return to_message_response(message)
+    import logging
+    logger = logging.getLogger(__name__)
+    try:
+        message = await communication_service.send_message(
+            sender_id   = str(current_user.id),
+            receiver_id = body.receiver_id,
+            tenant_id   = body.tenant_id,
+            body        = body.body,
+            direction   = body.direction,
+            subject     = body.subject,
+            thread_id   = body.thread_id,
+        )
+        return to_message_response(message)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("send_message failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @router.get(

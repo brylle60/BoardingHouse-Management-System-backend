@@ -43,6 +43,41 @@ async def get_room_by_number(room_number: str) -> Optional[Room]:
     return await Room.find_one(Room.room_number == room_number)
 
 
+async def get_rooms_by_manager(
+    manager_id: str,
+    skip: int = 0,
+    limit: int = 50,
+) -> list[Room]:
+    """
+    Returns all rooms owned by a specific manager.
+    """
+    return await Room.find(
+        Room.manager_id == manager_id
+    ).skip(skip).limit(limit).to_list()
+
+
+async def get_room_ids_by_manager(manager_id: str) -> list[str]:
+    """
+    Returns just the string IDs of rooms owned by a manager.
+    Used to scope lease/payment/maintenance queries.
+    """
+    rooms = await Room.find(
+        Room.manager_id == manager_id
+    ).to_list()
+    return [str(r.id) for r in rooms]
+
+
+async def count_rooms_by_manager(
+    manager_id: str,
+    status: Optional[RoomStatus] = None,
+) -> int:
+    """Returns count of rooms for a manager, optionally filtered by status."""
+    query = {"manager_id": manager_id}
+    if status:
+        query["status"] = status.value
+    return await Room.find(query).count()
+
+
 async def get_rooms_by_status(
     status: RoomStatus,
     skip: int = 0,
