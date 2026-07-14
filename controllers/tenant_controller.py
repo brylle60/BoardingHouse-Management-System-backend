@@ -15,7 +15,7 @@ from dto.request.tenant_request import (
 from dto.response.tenant_response import TenantResponse
 from dto.response.api_response import ApiResponse
 from config.jwt_middleware import get_current_user, require_roles
-from models.user import RoleName
+from models.user import RoleName, User
 
 router = APIRouter(
     prefix="/api/tenants",
@@ -443,4 +443,27 @@ async def delete_tenant(
     return ApiResponse.success(
         data=data,
         message=data.get("message", "Tenant deleted successfully."),
+    )
+# ================================================================
+# DELETE /api/tenants/{tenant_id}/unassign
+# ================================================================
+
+@router.delete(
+    "/{tenant_id}/unassign",
+    status_code=status.HTTP_200_OK,
+    summary="Unassign tenant (Full Cleanup)",
+    description="Frees the assigned room, deletes associated bookings, "
+                "and removes the tenant profile. Accessible by MANAGER and ADMIN.",
+)
+async def unassign_tenant(
+    tenant_id: PydanticObjectId = Path(..., description="Tenant MongoDB ObjectId"),
+    current_user: User = Depends(require_roles(RoleName.MANAGER, RoleName.ADMIN)),
+):
+    """
+    This helper unifies the cleanup process. 
+    Note: Ensure 'unassign_tenant' is implemented in your tenant_service.
+    """
+    return await tenant_service.unassign_tenant(
+        tenant_id=tenant_id,
+        updated_by=current_user.username,
     )

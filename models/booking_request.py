@@ -10,6 +10,7 @@ class BookingStatus(str, Enum):
     APPROVED  = "APPROVED"
     REJECTED  = "REJECTED"
     CANCELLED = "CANCELLED"
+    CONFIRMED = "CONFIRMED"
 
 
 class BookingRequest(Document):

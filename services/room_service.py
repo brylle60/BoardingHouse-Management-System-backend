@@ -67,6 +67,7 @@ def _assert_occupants_within_capacity(room: Room) -> None:
 def _build_room_from_request(
     request: RoomCreateRequest,
     created_by: str,
+    manager_id: Optional[str] = None,
 ) -> Room:
     """
     Constructs a Room document from a validated create request.
@@ -105,6 +106,7 @@ def _build_room_from_request(
         dimension=dimension,
         amenities=amenities,
         status=RoomStatus.VACANT,
+        manager_id=manager_id,
         created_by=created_by,
         updated_by=created_by,
     )
@@ -117,6 +119,7 @@ def _build_room_from_request(
 async def create_room(
     request: RoomCreateRequest,
     created_by: str,
+    manager_id: Optional[str] = None,
 ) -> RoomResponse:
     """
     Creates a new room.
@@ -131,7 +134,7 @@ async def create_room(
     await _assert_no_duplicate_room_number(request.room_number)
     _assert_rate_is_positive(request.monthly_rate)
 
-    room = _build_room_from_request(request, created_by)
+    room = _build_room_from_request(request, created_by, manager_id=manager_id)
     created = await room_repository.create_room(room)
     return RoomResponse.from_room(created)
 

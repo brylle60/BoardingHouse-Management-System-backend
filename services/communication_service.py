@@ -28,6 +28,7 @@ from repository.message_repository import (
     mark_announcement_read,
     delete_announcement,
 )
+from models.notification import Notification, NotificationPriority
 from repository.notification_repository import create_notification
 
 
@@ -74,16 +75,22 @@ class CommunicationService:
         )
         saved = await save_message(message)
 
-        # Notify the receiver
-        notif_title = f"New message from {'Tenant' if direction == MessageDirection.TENANT_TO_MANAGEMENT else 'Management'}"
-        await create_notification(
-            user_id        = receiver_id,
-            type           = NotificationType.NEW_MESSAGE,
-            title          = notif_title,
-            message        = body[:100] + ("..." if len(body) > 100 else ""),
-            reference_id   = str(saved.id),
-            reference_type = "message",
-        )
+        # Notify the receiver (non-blocking — don't let notification failure break messaging)
+        try:
+            notif_title = f"New message from {'Tenant' if direction == MessageDirection.TENANT_TO_MANAGEMENT else 'Management'}"
+            notif = Notification(
+                recipient_id   = receiver_id,
+                sender_id      = sender_id,
+                notification_type = NotificationType.NEW_MESSAGE,
+                priority       = NotificationPriority.NORMAL,
+                title          = notif_title,
+                message        = body[:100] + ("..." if len(body) > 100 else ""),
+                reference_id   = str(saved.id),
+                reference_type = "message",
+            )
+            await create_notification(notif)
+        except Exception:
+            pass  # notification is best-effort
 
         return saved
 

@@ -133,6 +133,9 @@ class Room(Document):
     last_maintenance_date: Optional[datetime] = None
     maintenance_notes:     Optional[str]      = None
 
+    # ── Manager Ownership ──────────────────────────────────────
+    manager_id: Optional[str] = None   # User._id of the manager who owns this room
+
     # ── Audit Fields ──────────────────────────────────────────
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -145,6 +148,7 @@ class Room(Document):
         indexes = [
             [("room_number", 1)],   # unique index on room_number
             [("status", 1)],        # fast filter by status
+            [("manager_id", 1)],    # fast filter by manager
         ]
 
     # ── Computed Properties ───────────────────────────────────
